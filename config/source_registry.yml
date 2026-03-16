@@ -1,0 +1,35 @@
+version: 1
+default_currency: KRW
+targets:
+  - site: usimsa
+    site_label: 유심사
+    parser_hint: next_stream
+    countries:
+      - country_code: JP
+        country_name_ko: 일본
+        source_url: https://shop.usimsa.com/sim/179D30E5-6A69-EE11-BBF0-28187860D6D3
+      - country_code: VN
+        country_name_ko: 베트남
+        source_url: https://shop.usimsa.com/sim/1A9D30E5-6A69-EE11-BBF0-28187860D6D3
+      - country_code: US
+        country_name_ko: 미국
+        source_url: https://shop.usimsa.com/sim/1C9D30E5-6A69-EE11-BBF0-28187860D6D3
+      - country_code: PH
+        country_name_ko: 필리핀
+        source_url: https://shop.usimsa.com/sim/1F9D30E5-6A69-EE11-BBF0-28187860D6D3
+  - site: pindirect
+    site_label: 핀다이렉트
+    parser_hint: next_data
+    countries:
+      - country_code: JP
+        country_name_ko: 일본
+        source_url: https://www.pindirectshop.com/roaming/select-option/7D1AFA8A-098C-4EF8-BBE2-0F9B211EC46B
+      - country_code: VN
+        country_name_ko: 베트남
+        source_url: https://www.pindirectshop.com/roaming/select-option/36F8C14E-097C-448E-88F2-5C83DA92942F
+      - country_code: US
+        country_name_ko: 미국
+        source_url: https://www.pindirectshop.com/roaming/select-option/82793C11-FDD5-443C-A042-B1A9D8ADA57B
+      - country_code: PH
+        country_name_ko: 필리핀
+        source_url: https://www.pindirectshop.com/roaming/select-option/13721477-17B2-4267-B5F1-C599CF78306A

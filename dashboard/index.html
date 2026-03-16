@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Domestic eSIM Price Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">GitHub Pages Static Dashboard</p>
+        <h1>국내 판매 해외 eSIM 가격 비교</h1>
+        <p class="hero-description">국내 판매 사이트의 해외용 eSIM 가격을 국가, 사용일수, 데이터 용량, 망 유형 기준으로 한 화면에서 비교합니다.</p>
+      </div>
+      <div class="hero-meta">
+        <div class="meta-chip">
+          <span class="meta-label">Latest Run</span>
+          <strong id="last-collected">-</strong>
+        </div>
+        <div class="meta-chip">
+          <span class="meta-label">Run ID</span>
+          <strong id="run-id">-</strong>
+        </div>
+      </div>
+    </header>
+
+    <main class="content-grid">
+      <section class="panel filters-panel">
+        <div class="panel-header">
+          <h2>Filters</h2>
+          <button id="reset-filters" class="ghost-button" type="button">Reset</button>
+        </div>
+        <div class="filters">
+          <label class="filter-field"><span>사이트</span><select id="site-filter"></select></label>
+          <label class="filter-field"><span>국가</span><select id="country-filter"></select></label>
+          <label class="filter-field"><span>사용일수</span><select id="days-filter"></select></label>
+          <label class="filter-field"><span>데이터</span><select id="quota-filter"></select></label>
+          <label class="filter-field"><span>망 유형</span><select id="network-filter"></select></label>
+          <label class="filter-field">
+            <span>정렬</span>
+            <select id="sort-filter">
+              <option value="price">최저가 낮은순</option>
+              <option value="days">사용일수 낮은순</option>
+              <option value="site">사이트명 순</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section class="kpi-grid">
+        <article class="panel kpi-card"><span class="kpi-label">표시 행 수</span><strong id="kpi-rows">-</strong></article>
+        <article class="panel kpi-card"><span class="kpi-label">최저가</span><strong id="kpi-lowest">-</strong></article>
+        <article class="panel kpi-card"><span class="kpi-label">사이트 수</span><strong id="kpi-sites">-</strong></article>
+        <article class="panel kpi-card"><span class="kpi-label">국가 수</span><strong id="kpi-countries">-</strong></article>
+      </section>
+
+      <section class="panel summary-panel">
+        <div class="panel-header"><h2>Site Summary</h2></div>
+        <div id="site-summary" class="summary-list"></div>
+      </section>
+
+      <section class="panel summary-panel">
+        <div class="panel-header"><h2>Country Summary</h2></div>
+        <div id="country-summary" class="summary-list"></div>
+      </section>
+
+      <section class="panel table-panel">
+        <div class="panel-header">
+          <h2>Comparison Rows</h2>
+          <p id="table-meta" class="panel-note">-</p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>국가</th>
+                <th>사이트</th>
+                <th>일수</th>
+                <th>데이터</th>
+                <th>망</th>
+                <th>최저가</th>
+                <th>옵션 수</th>
+                <th>대표 옵션</th>
+                <th>원본</th>
+              </tr>
+            </thead>
+            <tbody id="comparison-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <template id="summary-item-template">
+    <article class="summary-item">
+      <div>
+        <h3 class="summary-title"></h3>
+        <p class="summary-meta"></p>
+      </div>
+      <div class="summary-price"></div>
+    </article>
+  </template>
+
+  <script src="./app.js" defer></script>
+</body>
+</html>
