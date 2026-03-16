@@ -2,6 +2,10 @@ const state = {
   payload: null,
   snapshotIndex: null,
   currentSnapshot: null,
+  pagination: {
+    currentPage: 1,
+    pageSize: 10,
+  },
   filters: {
     site: "all",
     country: "all",
@@ -55,9 +59,16 @@ const elements = {
   downloadCsv: document.getElementById("download-csv"),
   comparisonBody: document.getElementById("comparison-body"),
   tableMeta: document.getElementById("table-meta"),
+  pageFirst: document.getElementById("page-first"),
+  pagePrev: document.getElementById("page-prev"),
+  pageNext: document.getElementById("page-next"),
+  pageLast: document.getElementById("page-last"),
+  pageNumbers: document.getElementById("page-numbers"),
 };
 
 const fmt = new Intl.NumberFormat("ko-KR");
+
+const PAGE_WINDOW_SIZE = 5;
 
 async function loadDashboard() {
   const snapshotIndex = await tryLoadIndex();
@@ -250,6 +261,23 @@ function bindEvents() {
 
   elements.downloadCsv.addEventListener("click", () => {
     downloadComparisonRows(getFilteredRows());
+  });
+
+  elements.pagePrev.addEventListener("click", () => {
+    goToPage(state.pagination.currentPage - 1);
+  });
+
+  elements.pageNext.addEventListener("click", () => {
+    goToPage(state.pagination.currentPage + 1);
+  });
+
+  elements.pageFirst.addEventListener("click", () => {
+    goToPage(1);
+  });
+
+  elements.pageLast.addEventListener("click", () => {
+    const rows = getFilteredRows();
+    goToPage(Math.max(1, Math.ceil(rows.length / state.pagination.pageSize)));
   });
 }
 
@@ -479,9 +507,16 @@ function applyLimit(rows, limitValue) {
 }
 
 function renderTable(rows) {
+  const pageCount = Math.max(1, Math.ceil(rows.length / state.pagination.pageSize));
+  const currentPage = Math.min(state.pagination.currentPage, pageCount);
+  state.pagination.currentPage = currentPage;
+  const startIndex = (currentPage - 1) * state.pagination.pageSize;
+  const pagedRows = rows.slice(startIndex, startIndex + state.pagination.pageSize);
+
   elements.comparisonBody.innerHTML = "";
-  elements.tableMeta.textContent = `${fmt.format(rows.length)}개 비교 행`;
+  elements.tableMeta.textContent = `${fmt.format(rows.length)}개 비교 행 · ${fmt.format(currentPage)}/${fmt.format(pageCount)} 페이지`;
   elements.downloadCsv.disabled = rows.length === 0;
+  renderPagination(pageCount, currentPage, rows.length === 0);
 
   if (!rows.length) {
     const tr = document.createElement("tr");
@@ -494,7 +529,7 @@ function renderTable(rows) {
     return;
   }
 
-  for (const row of rows) {
+  for (const row of pagedRows) {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td><strong>${escapeHtml(row.country_name_ko)}</strong><small>${escapeHtml(row.country_code)}</small></td>
@@ -508,6 +543,33 @@ function renderTable(rows) {
       <td><a class="source-link" href="${row.source_url}" target="_blank" rel="noopener noreferrer">Open</a></td>
     `;
     elements.comparisonBody.appendChild(tr);
+  }
+}
+
+function renderPagination(pageCount, currentPage, isEmpty) {
+  elements.pageFirst.disabled = isEmpty || currentPage <= 1;
+  elements.pagePrev.disabled = isEmpty || currentPage <= 1;
+  elements.pageNext.disabled = isEmpty || currentPage >= pageCount;
+  elements.pageLast.disabled = isEmpty || currentPage >= pageCount;
+  elements.pageNumbers.innerHTML = "";
+
+  if (isEmpty) {
+    return;
+  }
+
+  const windowStart = Math.floor((currentPage - 1) / PAGE_WINDOW_SIZE) * PAGE_WINDOW_SIZE + 1;
+  const windowEnd = Math.min(pageCount, windowStart + PAGE_WINDOW_SIZE - 1);
+
+  for (let page = windowStart; page <= windowEnd; page += 1) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `ghost-button page-button${page === currentPage ? " is-active" : ""}`;
+    button.textContent = String(page);
+    button.disabled = page === currentPage;
+    button.addEventListener("click", () => {
+      goToPage(page);
+    });
+    elements.pageNumbers.appendChild(button);
   }
 }
 
@@ -578,6 +640,7 @@ function formatDate(value) {
 }
 
 function resetFiltersAndViews() {
+  state.pagination.currentPage = 1;
   state.filters = {
     site: "all",
     country: "all",
@@ -620,8 +683,16 @@ function applyFilters(nextFilters) {
     ...state.filters,
     ...nextFilters,
   };
+  state.pagination.currentPage = 1;
   syncGlobalFilterInputs();
   render();
+}
+
+function goToPage(page) {
+  const rows = getFilteredRows();
+  const pageCount = Math.max(1, Math.ceil(rows.length / state.pagination.pageSize));
+  state.pagination.currentPage = Math.max(1, Math.min(page, pageCount));
+  renderTable(rows);
 }
 
 function togglePanel(panelKey) {

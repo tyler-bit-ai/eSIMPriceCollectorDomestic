@@ -467,6 +467,40 @@ select:focus {
   background: rgba(255, 250, 244, 0.94);
 }
 
+.table-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 4px;
+}
+
+.page-numbers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.page-nav-button,
+.page-button {
+  min-width: 44px;
+  padding: 8px 14px;
+}
+
+.page-button.is-active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.ghost-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -598,7 +632,8 @@ a.source-link:hover {
 
   .panel-header,
   .panel-actions,
-  .modal-header {
+  .modal-header,
+  .table-pagination {
     flex-direction: column;
     align-items: start;
   }
