@@ -12,8 +12,9 @@
 
 - `app/` contains the Python package entrypoint, CLI, shared models, and output path contract.
 - `app/adapters/` contains site-specific parsers and each site module must self-register via `register_adapter(...)`.
-- `app/output/dashboard_data.py` builds `dashboard/data/latest.json`, which is the only dashboard data contract.
+- `app/output/dashboard_data.py` builds `dashboard/data/latest.json` and, on full publish, also emits `dashboard/data/index.json` plus `dashboard/data/snapshots/<run_id>.json` for snapshot selection.
 - `config/source_registry.yml` is the single source of truth for site and country target URLs.
+- `config/source_registry.yml` may contain the same `country_code` more than once for one site when roaming/local 상품이 별도 URL인 경우다.
 - `dashboard/` is reserved for GitHub Pages static assets.
 - `tests/` is reserved for fixtures and regression tests.
 - `data/` is the runtime output root and must not be hardcoded elsewhere with a different layout.
@@ -45,7 +46,7 @@
 - Do: make each new adapter module register itself when imported.
 - Do: add schema-affecting field changes in `app/models.py` first.
 - Do: keep new target URLs in `config/source_registry.yml`.
-- Do: keep dashboard-facing aggregate changes in `app/output/dashboard_data.py`.
+- Do: keep dashboard-facing aggregate changes and snapshot publish manifests in `app/output/dashboard_data.py`.
 - Do not: spread source URLs across adapter files, tests, and docs as separate sources of truth.
 - Do not: let `dashboard/` read raw crawler internals directly.
 
@@ -83,6 +84,7 @@
 
 - Do not add a Python or Node dependency unless the installation manifest is introduced or updated in the same change.
 - Do not add browser automation unless the relevant adapter requires it and the workflow/install path is documented.
+- `maaltalk` currently requires Playwright browser fallback because direct `goods_ps.php option_select` replay is not reliably accepted outside the browser session.
 - Record new dependency control points in this file once they become part of the project.
 
 ## Workflow Standards
@@ -91,7 +93,8 @@
 - Extend the existing `app/` plus `dashboard/` split instead of creating parallel app roots.
 - Keep the registry-driven crawl flow simple; avoid speculative abstractions beyond the adapter boundary.
 - Prefer `direct API` fallback over `browser` fallback when both are supported by a site.
-- Keep smoke verification anchored on `dashboard/data/latest.json` generation, not just parser-unit success.
+- For `rokebi`, prefer parsing embedded `self.__next_f` payloads over brittle DOM selectors or unnecessary browser control.
+- Keep smoke verification anchored on `dashboard/data/latest.json` generation and, when full publish is used, `dashboard/data/index.json` plus snapshot payload generation.
 
 ## AI Decision Rules
 

@@ -15,11 +15,21 @@
       <div class="hero-copy">
         <p class="eyebrow">GitHub Pages Static Dashboard</p>
         <h1>국내 판매 해외 eSIM 가격 비교</h1>
-        <p class="hero-description">국내 판매 사이트의 해외용 eSIM 가격을 국가, 사용일수, 데이터 용량, 망 유형 기준으로 한 화면에서 비교합니다.</p>
+        <p class="hero-description">필터를 선택한 뒤 국가별 가격 분포 밴드와 local / roaming 가격 차이를 비교하고, 하단 상세표로 원본 옵션을 확인합니다.</p>
+        <div class="hero-toolbar">
+          <label class="snapshot-field" for="snapshot-filter">
+            <span>크롤링 시점 선택</span>
+            <select id="snapshot-filter">
+              <option value="latest">기본 최신 데이터</option>
+            </select>
+          </label>
+          <p id="snapshot-meta" class="snapshot-meta">최신 스냅샷을 불러오는 중입니다.</p>
+        </div>
       </div>
       <div class="hero-meta">
+        <button id="help-button" class="ghost-button help-button" type="button">도움말</button>
         <div class="meta-chip">
-          <span class="meta-label">Latest Run</span>
+          <span class="meta-label">Selected Snapshot</span>
           <strong id="last-collected">-</strong>
         </div>
         <div class="meta-chip">
@@ -32,7 +42,10 @@
     <main class="content-grid">
       <section class="panel filters-panel">
         <div class="panel-header">
-          <h2>Filters</h2>
+          <div>
+            <p class="section-kicker">Filters</p>
+            <h2>비교 조건 선택</h2>
+          </div>
           <button id="reset-filters" class="ghost-button" type="button">Reset</button>
         </div>
         <div class="filters">
@@ -52,27 +65,65 @@
         </div>
       </section>
 
-      <section class="kpi-grid">
-        <article class="panel kpi-card"><span class="kpi-label">표시 행 수</span><strong id="kpi-rows">-</strong></article>
-        <article class="panel kpi-card"><span class="kpi-label">최저가</span><strong id="kpi-lowest">-</strong></article>
-        <article class="panel kpi-card"><span class="kpi-label">사이트 수</span><strong id="kpi-sites">-</strong></article>
-        <article class="panel kpi-card"><span class="kpi-label">국가 수</span><strong id="kpi-countries">-</strong></article>
+      <section class="panel summary-strip">
+        <article class="summary-stat">
+          <span class="kpi-label">표시 행 수</span>
+          <strong id="kpi-rows">-</strong>
+        </article>
+        <article class="summary-stat">
+          <span class="kpi-label">최저가</span>
+          <strong id="kpi-lowest">-</strong>
+        </article>
+        <article class="summary-stat">
+          <span class="kpi-label">사이트 수</span>
+          <strong id="kpi-sites">-</strong>
+        </article>
+        <article class="summary-stat">
+          <span class="kpi-label">국가 수</span>
+          <strong id="kpi-countries">-</strong>
+        </article>
       </section>
 
-      <section class="panel summary-panel">
-        <div class="panel-header"><h2>Site Summary</h2></div>
-        <div id="site-summary" class="summary-list"></div>
+      <section class="panel distribution-panel">
+        <div class="panel-header">
+          <div>
+            <p class="section-kicker">Price Distribution</p>
+            <h2>국가별 가격 분포 밴드</h2>
+          </div>
+          <p class="panel-note">일수별 최저가 흐름과 최저가 구간을 밴드 길이로 비교합니다.</p>
+        </div>
+        <div class="section-controls">
+          <label class="filter-field compact-field"><span>표시 국가</span><select id="price-band-country-filter"></select></label>
+          <label class="filter-field compact-field"><span>표시 개수</span><select id="price-band-limit-filter"></select></label>
+        </div>
+        <div id="price-band-list" class="price-band-list"></div>
       </section>
 
-      <section class="panel summary-panel">
-        <div class="panel-header"><h2>Country Summary</h2></div>
-        <div id="country-summary" class="summary-list"></div>
+      <section class="panel premium-panel">
+        <div class="panel-header">
+          <div>
+            <p class="section-kicker">Local vs Roaming</p>
+            <h2>망 유형 가격 차이</h2>
+          </div>
+          <p class="panel-note">같은 사이트의 local / roaming 가격 차이와 비율 차이를 보여줍니다.</p>
+        </div>
+        <div class="section-controls">
+          <label class="filter-field compact-field"><span>표시 사이트</span><select id="premium-site-filter"></select></label>
+          <label class="filter-field compact-field"><span>표시 개수</span><select id="premium-limit-filter"></select></label>
+        </div>
+        <div id="premium-list" class="premium-list"></div>
       </section>
 
       <section class="panel table-panel">
         <div class="panel-header">
-          <h2>Comparison Rows</h2>
-          <p id="table-meta" class="panel-note">-</p>
+          <div>
+            <p class="section-kicker">Drill-down</p>
+            <h2>상세 비교표</h2>
+          </div>
+          <div class="panel-actions">
+            <button id="download-csv" class="ghost-button" type="button">Excel 다운로드</button>
+            <p id="table-meta" class="panel-note">-</p>
+          </div>
         </div>
         <div class="table-wrap">
           <table>
@@ -96,15 +147,40 @@
     </main>
   </div>
 
-  <template id="summary-item-template">
-    <article class="summary-item">
-      <div>
-        <h3 class="summary-title"></h3>
-        <p class="summary-meta"></p>
+  <div id="help-modal" class="modal-shell" hidden>
+    <div id="help-overlay" class="modal-overlay"></div>
+    <section class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="help-title">
+      <div class="modal-header">
+        <div>
+          <p class="section-kicker">Guide</p>
+          <h2 id="help-title">대시보드 도움말</h2>
+        </div>
+        <button id="help-close" class="ghost-button" type="button" aria-label="도움말 닫기">닫기</button>
       </div>
-      <div class="summary-price"></div>
-    </article>
-  </template>
+      <div class="modal-body">
+        <article class="help-block">
+          <h3>크롤링 시점 선택</h3>
+          <p>상단 선택기에서 이전 publish 시점 데이터를 고를 수 있습니다. 선택을 바꾸면 화면 전체가 해당 시점 기준으로 다시 갱신됩니다.</p>
+        </article>
+        <article class="help-block">
+          <h3>Filters</h3>
+          <p>사이트, 국가, 사용일수, 데이터, 망 유형, 정렬 기준으로 전체 비교 조건을 좁힙니다. 아래 모든 섹션에 공통 적용됩니다.</p>
+        </article>
+        <article class="help-block">
+          <h3>Price Distribution</h3>
+          <p>국가별 일수 구간의 최저가 흐름을 비교합니다. 표시 국가와 표시 개수를 줄여 원하는 밴드만 볼 수 있고, 카드를 누르면 상세표 필터가 연결됩니다.</p>
+        </article>
+        <article class="help-block">
+          <h3>Local vs Roaming</h3>
+          <p>같은 사이트의 local / roaming 가격 차이를 비교합니다. 사이트와 표시 개수를 조절해 필요한 카드만 집중해서 볼 수 있습니다.</p>
+        </article>
+        <article class="help-block">
+          <h3>Drill-down</h3>
+          <p>현재 선택한 조건의 비교 행을 표로 보여줍니다. 우측 상단의 Excel 다운로드 버튼으로 현재 보이는 결과를 CSV 파일로 받을 수 있습니다.</p>
+        </article>
+      </div>
+    </section>
+  </div>
 
   <script src="./app.js" defer></script>
 </body>

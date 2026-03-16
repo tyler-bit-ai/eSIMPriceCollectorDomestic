@@ -9,7 +9,7 @@ from uuid import uuid4
 from app.adapters import ensure_adapter_module
 from app.adapters.base import get_adapter
 from app.models import NormalizedPriceRecord, OutputContract, RunMetadata
-from app.output.dashboard_data import write_dashboard_latest
+from app.output.dashboard_data import write_dashboard_publish_bundle
 from app.output.paths import build_output_contract
 from app.output.writer import append_failures, ensure_output_dirs, write_records, write_run_metadata
 from app.pipeline.normalize import normalize_option, validate_record
@@ -32,6 +32,7 @@ def run_crawl(
     output_root: Path,
     selected_sites: list[str] | None = None,
     selected_countries: list[str] | None = None,
+    publish_dashboard: bool = False,
 ) -> CrawlSummary:
     contract = build_output_contract(output_root)
     ensure_output_dirs(contract)
@@ -85,6 +86,8 @@ def run_crawl(
     write_records(contract, records)
     write_run_metadata(contract, metadata)
     append_failures(contract, failures)
-    write_dashboard_latest(records, metadata)
+    is_subset_run = bool(selected_sites or selected_countries)
+    if publish_dashboard and not is_subset_run:
+        write_dashboard_publish_bundle(records, metadata)
 
     return CrawlSummary(metadata=metadata, output=contract, records=records)
