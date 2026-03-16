@@ -85,33 +85,63 @@
       </section>
 
       <section class="panel distribution-panel">
-        <div class="panel-header">
-          <div>
-            <p class="section-kicker">Price Distribution</p>
-            <h2>국가별 가격 분포 밴드</h2>
+        <button
+          id="distribution-toggle"
+          class="panel-toggle"
+          type="button"
+          aria-expanded="false"
+          aria-controls="distribution-body"
+        >
+          <div class="panel-header">
+            <div>
+              <p class="section-kicker">Price Distribution</p>
+              <h2>국가별 가격 분포 밴드</h2>
+              <p class="panel-toggle-hint">클릭하여 가격 분포 밴드 펼치기</p>
+            </div>
+            <div class="panel-toggle-side">
+              <p class="panel-note">일수별 최저가 흐름과 최저가 구간을 밴드 길이로 비교합니다.</p>
+              <span class="panel-toggle-badge">접힘 상태</span>
+              <span class="panel-toggle-icon" aria-hidden="true">▾</span>
+            </div>
           </div>
-          <p class="panel-note">일수별 최저가 흐름과 최저가 구간을 밴드 길이로 비교합니다.</p>
+        </button>
+        <div id="distribution-body" class="panel-body" hidden>
+          <div class="section-controls">
+            <label class="filter-field compact-field"><span>표시 국가</span><select id="price-band-country-filter"></select></label>
+            <label class="filter-field compact-field"><span>표시 개수</span><select id="price-band-limit-filter"></select></label>
+          </div>
+          <div id="price-band-list" class="price-band-list"></div>
         </div>
-        <div class="section-controls">
-          <label class="filter-field compact-field"><span>표시 국가</span><select id="price-band-country-filter"></select></label>
-          <label class="filter-field compact-field"><span>표시 개수</span><select id="price-band-limit-filter"></select></label>
-        </div>
-        <div id="price-band-list" class="price-band-list"></div>
       </section>
 
       <section class="panel premium-panel">
-        <div class="panel-header">
-          <div>
-            <p class="section-kicker">Local vs Roaming</p>
-            <h2>망 유형 가격 차이</h2>
+        <button
+          id="premium-toggle"
+          class="panel-toggle"
+          type="button"
+          aria-expanded="false"
+          aria-controls="premium-body"
+        >
+          <div class="panel-header">
+            <div>
+              <p class="section-kicker">Local vs Roaming</p>
+              <h2>망 유형 가격 차이</h2>
+              <p class="panel-toggle-hint">클릭하여 local / roaming 비교 펼치기</p>
+            </div>
+            <div class="panel-toggle-side">
+              <p class="panel-note">같은 사이트의 local / roaming 가격 차이와 비율 차이를 보여줍니다.</p>
+              <span class="panel-toggle-badge">접힘 상태</span>
+              <span class="panel-toggle-icon" aria-hidden="true">▾</span>
+            </div>
           </div>
-          <p class="panel-note">같은 사이트의 local / roaming 가격 차이와 비율 차이를 보여줍니다.</p>
+        </button>
+        <div id="premium-body" class="panel-body" hidden>
+          <div class="section-controls">
+            <label class="filter-field compact-field"><span>표시 사이트</span><select id="premium-site-filter"></select></label>
+            <label class="filter-field compact-field"><span>표시 개수</span><select id="premium-limit-filter"></select></label>
+          </div>
+          <div id="premium-list" class="premium-list"></div>
         </div>
-        <div class="section-controls">
-          <label class="filter-field compact-field"><span>표시 사이트</span><select id="premium-site-filter"></select></label>
-          <label class="filter-field compact-field"><span>표시 개수</span><select id="premium-limit-filter"></select></label>
-        </div>
-        <div id="premium-list" class="premium-list"></div>
       </section>
 
       <section class="panel table-panel">

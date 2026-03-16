@@ -130,6 +130,79 @@ h1 {
   padding: 22px;
 }
 
+.panel-body[hidden] {
+  display: none;
+}
+
+.panel-toggle {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 18px;
+}
+
+.panel-toggle .panel-header {
+  margin-bottom: 0;
+}
+
+.panel-toggle:hover .panel-header,
+.panel-toggle:focus-visible .panel-header {
+  background: rgba(180, 79, 47, 0.08);
+  border-radius: 18px;
+}
+
+.panel-toggle:focus-visible {
+  outline: 2px solid rgba(180, 79, 47, 0.25);
+  outline-offset: 4px;
+}
+
+.panel-toggle-hint {
+  margin: 8px 0 0;
+  font-size: 0.88rem;
+  color: var(--accent-deep);
+}
+
+.panel-toggle-side {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
+.panel-toggle-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(180, 79, 47, 0.12);
+  color: var(--accent-deep);
+  font-size: 0.78rem;
+}
+
+.panel-toggle-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: rgba(31, 26, 23, 0.08);
+  color: var(--accent-deep);
+  transform: rotate(0deg);
+  transition: transform 160ms ease, background 160ms ease;
+}
+
+.panel-toggle[aria-expanded="true"] .panel-toggle-icon {
+  transform: rotate(180deg);
+}
+
+.panel-toggle[aria-expanded="true"] .panel-toggle-badge {
+  background: rgba(97, 116, 171, 0.14);
+  color: #40507a;
+}
+
 .section-kicker {
   margin: 0 0 8px;
   font-size: 0.8rem;

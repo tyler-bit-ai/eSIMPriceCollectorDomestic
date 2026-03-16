@@ -186,11 +186,12 @@ smoke 실행 후 최소 확인 대상:
 
 1. 첫 화면에 `Filters`, `Price Distribution`, `Local vs Roaming`, `Drill-down`만 보여야 한다.
 2. 상단 hero에서 snapshot selector로 이전 publish 데이터를 선택할 수 있어야 하고, 도움말 버튼 클릭 시 각 메뉴 설명 modal이 열려야 한다.
-3. `Price Distribution`에서 국가 선택과 표시 개수 선택으로 원하는 밴드만 볼 수 있어야 한다.
-4. `Local vs Roaming` 섹션에서 사이트 선택과 표시 개수 선택으로 필요한 비교 카드만 볼 수 있어야 한다.
-5. 가격 분포 밴드와 local / roaming 비교 카드 클릭이 하단 drill-down 필터와 연결되어야 한다.
-6. 하단 테이블은 선택된 필터 조건에 맞는 상세 옵션과 원본 링크, 수집 시각을 유지해야 하고, 우측 상단에서 CSV 다운로드가 가능해야 한다.
-7. subset crawl은 publish용 `dashboard/data/latest.json`, `dashboard/data/index.json`, `dashboard/data/snapshots/`를 덮어쓰지 않고, `--publish-dashboard`가 붙은 전체 실행에서만 갱신되어야 한다.
+3. `Price Distribution`과 `Local vs Roaming`은 기본적으로 접혀 있어야 하고, 섹션 헤더만 봐도 눌러서 펼칠 수 있다는 점을 인지할 수 있어야 한다.
+4. `Price Distribution`을 펼친 뒤 국가 선택과 표시 개수 선택으로 원하는 밴드만 볼 수 있어야 한다.
+5. `Local vs Roaming`을 펼친 뒤 사이트 선택과 표시 개수 선택으로 필요한 비교 카드만 볼 수 있어야 한다.
+6. 가격 분포 밴드와 local / roaming 비교 카드 클릭이 하단 drill-down 필터와 연결되어야 한다.
+7. 하단 테이블은 선택된 필터 조건에 맞는 상세 옵션과 원본 링크, 수집 시각을 유지해야 하고, 우측 상단에서 CSV 다운로드가 가능해야 한다.
+8. subset crawl은 publish용 `dashboard/data/latest.json`, `dashboard/data/index.json`, `dashboard/data/snapshots/`를 덮어쓰지 않고, `--publish-dashboard`가 붙은 전체 실행에서만 갱신되어야 한다.
 
 ### Validation Commands
 

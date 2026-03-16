@@ -16,6 +16,10 @@ const state = {
     premiumSite: "all",
     premiumLimit: "6",
   },
+  panels: {
+    distribution: false,
+    premium: false,
+  },
 };
 
 const elements = {
@@ -38,9 +42,13 @@ const elements = {
   kpiLowest: document.getElementById("kpi-lowest"),
   kpiSites: document.getElementById("kpi-sites"),
   kpiCountries: document.getElementById("kpi-countries"),
+  distributionToggle: document.getElementById("distribution-toggle"),
+  distributionBody: document.getElementById("distribution-body"),
   priceBandCountryFilter: document.getElementById("price-band-country-filter"),
   priceBandLimitFilter: document.getElementById("price-band-limit-filter"),
   priceBandList: document.getElementById("price-band-list"),
+  premiumToggle: document.getElementById("premium-toggle"),
+  premiumBody: document.getElementById("premium-body"),
   premiumSiteFilter: document.getElementById("premium-site-filter"),
   premiumLimitFilter: document.getElementById("premium-limit-filter"),
   premiumList: document.getElementById("premium-list"),
@@ -196,6 +204,14 @@ function bindEvents() {
     await loadSnapshot(snapshot.relative_path, snapshot);
   });
 
+  elements.distributionToggle.addEventListener("click", () => {
+    togglePanel("distribution");
+  });
+
+  elements.premiumToggle.addEventListener("click", () => {
+    togglePanel("premium");
+  });
+
   elements.priceBandCountryFilter.addEventListener("change", () => {
     state.views.priceBandCountry = elements.priceBandCountryFilter.value;
     renderPriceBands();
@@ -241,9 +257,19 @@ function render() {
   const rows = getFilteredRows();
   renderHeader();
   renderSummary(rows);
+  renderPanels();
   renderPriceBands();
   renderPremiumRows();
   renderTable(rows);
+}
+
+function renderPanels() {
+  elements.distributionToggle.setAttribute("aria-expanded", String(state.panels.distribution));
+  elements.distributionBody.hidden = !state.panels.distribution;
+  updatePanelStatus(elements.distributionToggle, state.panels.distribution);
+  elements.premiumToggle.setAttribute("aria-expanded", String(state.panels.premium));
+  elements.premiumBody.hidden = !state.panels.premium;
+  updatePanelStatus(elements.premiumToggle, state.panels.premium);
 }
 
 function renderHeader() {
@@ -273,6 +299,10 @@ function renderSummary(rows) {
 }
 
 function renderPriceBands() {
+  if (!state.panels.distribution) {
+    elements.priceBandList.innerHTML = "";
+    return;
+  }
   const bands = getFilteredPriceBands();
   elements.priceBandList.innerHTML = "";
 
@@ -335,6 +365,10 @@ function renderPriceBands() {
 }
 
 function renderPremiumRows() {
+  if (!state.panels.premium) {
+    elements.premiumList.innerHTML = "";
+    return;
+  }
   const rows = getFilteredPremiumRows();
   elements.premiumList.innerHTML = "";
 
@@ -588,6 +622,36 @@ function applyFilters(nextFilters) {
   };
   syncGlobalFilterInputs();
   render();
+}
+
+function togglePanel(panelKey) {
+  state.panels[panelKey] = !state.panels[panelKey];
+  renderPanels();
+  if (panelKey === "distribution") {
+    renderPriceBands();
+  }
+  if (panelKey === "premium") {
+    renderPremiumRows();
+  }
+}
+
+function updatePanelStatus(toggleElement, expanded) {
+  const badge = toggleElement.querySelector(".panel-toggle-badge");
+  const hint = toggleElement.querySelector(".panel-toggle-hint");
+  if (badge) {
+    badge.textContent = expanded ? "펼쳐짐" : "접힘 상태";
+  }
+  if (hint) {
+    hint.textContent = expanded ? "다시 누르면 접힙니다" : hint.textContent;
+    if (!expanded) {
+      if (toggleElement === elements.distributionToggle) {
+        hint.textContent = "클릭하여 가격 분포 밴드 펼치기";
+      }
+      if (toggleElement === elements.premiumToggle) {
+        hint.textContent = "클릭하여 local / roaming 비교 펼치기";
+      }
+    }
+  }
 }
 
 function buildSnapshotLabel(snapshot) {
