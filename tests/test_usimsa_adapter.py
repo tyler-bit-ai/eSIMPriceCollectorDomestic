@@ -32,14 +32,34 @@ def test_parse_usimsa_fixture_extracts_multiple_records() -> None:
     assert first.price_krw is not None
     assert first.network_type == "roaming"
     assert first.parser_mode == "next_stream"
-    assert first.evidence["payload_path"].startswith("dayOptions.")
+    assert ".dayOptions." in first.evidence["payload_path"]
+    assert {"roaming", "local"} <= {record.network_type for record in records}
 
     unlimited = next(record for record in records if record.option_name == "완전 무제한" and record.days == 1)
     throttled = next(record for record in records if "이후 저속 무제한" in record.option_name)
+    local_variant = next(
+        record
+        for record in records
+        if record.days == 1 and record.data_quota_label == unlimited.data_quota_label and record.network_type == "local"
+    )
     assert unlimited.data_quota_mb is None
     assert unlimited.data_quota_label == "unlimited"
     assert throttled.data_quota_mb is not None
     assert throttled.data_quota_label is not None
+    assert local_variant.network_type == "local"
+
+
+def test_parse_usimsa_fixture_extracts_local_records_in_volume() -> None:
+    html = Path("tests/fixtures/usimsa_japan.html").read_text(encoding="utf-8")
+
+    records = parse_usimsa_html(html, _target())
+
+    local_records = [record for record in records if record.network_type == "local"]
+    roaming_records = [record for record in records if record.network_type == "roaming"]
+
+    assert len(local_records) > 0
+    assert len(roaming_records) > 0
+    assert len(local_records) >= len(roaming_records)
 
 
 def test_run_crawl_with_usimsa_adapter_writes_records(tmp_path: Path) -> None:
@@ -83,4 +103,6 @@ def test_run_crawl_with_usimsa_adapter_writes_records(tmp_path: Path) -> None:
     assert summary.metadata.failure_count == 0
     assert latest_records[0]["site"] == "usimsa"
     assert latest_records[0]["source_url"] == _target().source_url
-    assert latest_records[0]["evidence"]["payload_path"].startswith("dayOptions.")
+    assert ".dayOptions." in latest_records[0]["evidence"]["payload_path"]
+    assert any(record["network_type"] == "local" for record in latest_records)
+    assert any(record["network_type"] == "roaming" for record in latest_records)

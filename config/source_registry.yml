@@ -33,3 +33,38 @@ targets:
       - country_code: PH
         country_name_ko: 필리핀
         source_url: https://www.pindirectshop.com/roaming/select-option/13721477-17B2-4267-B5F1-C599CF78306A
+  - site: rokebi
+    site_label: 로밍도깨비
+    parser_hint: next_stream
+    countries:
+      - country_code: JP
+        country_name_ko: 일본
+        source_url: https://www.rokebi.com/store?keyword=%EC%9D%BC%EB%B3%B8&tab=search&categoryItem=463
+      - country_code: VN
+        country_name_ko: 베트남
+        source_url: https://www.rokebi.com/store?keyword=%EB%B2%A0%ED%8A%B8%EB%82%A8&tab=asia&categoryItem=462
+      - country_code: US
+        country_name_ko: 미국
+        source_url: https://www.rokebi.com/store?keyword=%EB%AF%B8%EA%B5%AD&tab=usaAu&categoryItem=475
+      - country_code: PH
+        country_name_ko: 필리핀
+        source_url: https://www.rokebi.com/store?keyword=%ED%95%84%EB%A6%AC%ED%95%80&tab=asia&categoryItem=497
+  - site: maaltalk
+    site_label: 말톡
+    parser_hint: static_html
+    countries:
+      - country_code: JP
+        country_name_ko: 일본
+        source_url: https://store.maaltalk.com/goods/goods_view.php?goodsNo=1000000265
+      - country_code: VN
+        country_name_ko: 베트남
+        source_url: https://store.maaltalk.com/goods/goods_view.php?goodsNo=1000000252
+      - country_code: VN
+        country_name_ko: 베트남
+        source_url: https://store.maaltalk.com/goods/goods_view.php?goodsNo=1000000358
+      - country_code: PH
+        country_name_ko: 필리핀
+        source_url: https://store.maaltalk.com/goods/goods_view.php?goodsNo=1000000243
+      - country_code: US
+        country_name_ko: 미국
+        source_url: https://store.maaltalk.com/goods/goods_view.php?goodsNo=1000000380

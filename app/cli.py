@@ -42,6 +42,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         help="Optional country filter. Repeat to select multiple countries.",
     )
+    crawl_parser.add_argument(
+        "--publish-dashboard",
+        action="store_true",
+        help="Also refresh dashboard/data/latest.json for GitHub Pages publishing.",
+    )
     crawl_parser.set_defaults(handler=handle_crawl)
     return parser
 
@@ -52,6 +57,7 @@ def handle_crawl(args: argparse.Namespace) -> int:
         output_root=args.out,
         selected_sites=args.site,
         selected_countries=args.country,
+        publish_dashboard=args.publish_dashboard,
     )
     print(f"run_id={summary.metadata.run_id}")
     print(f"success_count={summary.metadata.success_count}")
