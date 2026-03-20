@@ -88,6 +88,58 @@ h1 {
   gap: 12px;
 }
 
+.snapshot-dropdown {
+  position: relative;
+}
+
+.snapshot-dropdown-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel-strong);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.snapshot-dropdown-button:hover,
+.snapshot-dropdown-button[aria-expanded="true"] {
+  border-color: rgba(180, 79, 47, 0.35);
+  background: rgba(255, 244, 230, 0.94);
+}
+
+.snapshot-dropdown-button:focus-visible {
+  outline: 2px solid rgba(180, 79, 47, 0.18);
+  outline-offset: 4px;
+}
+
+.snapshot-dropdown-icon {
+  color: var(--accent-deep);
+  transition: transform 160ms ease;
+}
+
+.snapshot-dropdown-button[aria-expanded="true"] .snapshot-dropdown-icon {
+  transform: rotate(180deg);
+}
+
+.snapshot-dropdown-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 250, 242, 0.98);
+  box-shadow: 0 18px 40px rgba(31, 26, 23, 0.16);
+}
+
 .snapshot-multi-field {
   display: grid;
   gap: 10px;
@@ -112,8 +164,10 @@ h1 {
 
 .snapshot-checklist {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: 1fr;
   gap: 10px;
+  max-height: 320px;
+  overflow: auto;
 }
 
 .snapshot-option {
@@ -129,6 +183,11 @@ h1 {
 .snapshot-option input {
   margin-top: 2px;
   accent-color: var(--accent);
+}
+
+.snapshot-option input:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .snapshot-option-copy {
@@ -384,7 +443,8 @@ select:focus {
 }
 
 .price-band-list,
-.premium-list {
+.premium-list,
+.snapshot-diff-list {
   display: grid;
   gap: 18px;
 }
@@ -461,9 +521,45 @@ select:focus {
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
+.snapshot-diff-list {
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
 .premium-card {
   display: grid;
   gap: 12px;
+}
+
+.snapshot-diff-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 251, 245, 0.92);
+}
+
+.snapshot-diff-head,
+.snapshot-diff-foot {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.snapshot-diff-head small,
+.snapshot-diff-values span,
+.snapshot-diff-foot span {
+  color: var(--muted);
+}
+
+.snapshot-diff-values {
+  display: grid;
+  gap: 6px;
+}
+
+.snapshot-diff-badge {
+  min-width: 112px;
 }
 
 .premium-head {
@@ -748,13 +844,18 @@ a.source-link:hover {
   .filters,
   .summary-strip,
   .price-band-grid,
-  .premium-list {
+  .premium-list,
+  .snapshot-diff-list {
     grid-template-columns: 1fr;
   }
 
   .section-controls,
   .hero-toolbar {
     max-width: none;
+  }
+
+  .snapshot-dropdown-panel {
+    position: static;
   }
 
   .compact-field {

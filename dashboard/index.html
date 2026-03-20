@@ -18,18 +18,32 @@
         <p class="hero-description">필터를 선택한 뒤 국가별 가격 분포 밴드와 local / roaming 가격 차이를 비교하고, 하단 상세표로 원본 옵션을 확인합니다.</p>
         <div class="hero-toolbar">
           <div class="snapshot-picker">
-            <label class="snapshot-field" for="primary-snapshot-filter">
-              <span>기준 시점 선택</span>
-              <select id="primary-snapshot-filter">
-                <option value="latest">기본 최신 데이터</option>
-              </select>
-            </label>
             <div class="snapshot-multi-field">
               <div class="snapshot-field-head">
                 <span>비교 시점 선택</span>
-                <p id="snapshot-selection-help" class="snapshot-help">비교할 시점을 1개 이상 선택하면 가격 차이를 함께 표시합니다.</p>
+                <p id="snapshot-selection-help" class="snapshot-help">드롭다운에서 비교할 시점을 최대 2개까지 체크할 수 있습니다.</p>
               </div>
-              <div id="snapshot-checklist" class="snapshot-checklist" role="group" aria-label="비교 시점 선택"></div>
+              <div class="snapshot-dropdown">
+                <button
+                  id="snapshot-dropdown-button"
+                  class="snapshot-dropdown-button"
+                  type="button"
+                  aria-expanded="false"
+                  aria-controls="snapshot-dropdown-panel"
+                >
+                  <span id="snapshot-dropdown-label">시점을 선택하세요</span>
+                  <span class="snapshot-dropdown-icon" aria-hidden="true">▾</span>
+                </button>
+                <div
+                  id="snapshot-dropdown-panel"
+                  class="snapshot-dropdown-panel"
+                  role="group"
+                  aria-label="비교 시점 선택"
+                  hidden
+                >
+                  <div id="snapshot-checklist" class="snapshot-checklist"></div>
+                </div>
+              </div>
             </div>
           </div>
           <p id="snapshot-meta" class="snapshot-meta">최신 스냅샷을 불러오는 중입니다.</p>
@@ -155,6 +169,17 @@
         </div>
       </section>
 
+      <section class="panel snapshot-diff-panel">
+        <div class="panel-header">
+          <div>
+            <p class="section-kicker">Snapshot Diff</p>
+            <h2>시점별 변경 상품</h2>
+          </div>
+          <p id="snapshot-diff-meta" class="panel-note">시점 2개를 선택하면 가격 또는 노출 여부가 달라진 상품만 표시합니다.</p>
+        </div>
+        <div id="snapshot-diff-list" class="snapshot-diff-list"></div>
+      </section>
+
       <section class="panel table-panel">
         <div class="panel-header">
           <div>
@@ -176,7 +201,6 @@
                 <th>데이터</th>
                 <th>망</th>
                 <th>최저가</th>
-                <th>시점 비교</th>
                 <th>옵션 수</th>
                 <th>대표 옵션</th>
                 <th>원본</th>
@@ -209,7 +233,7 @@
       <div class="modal-body">
         <article class="help-block">
           <h3>크롤링 시점 선택</h3>
-          <p>상단에서 기준 시점을 고르고 비교할 시점을 여러 개 선택할 수 있습니다. 상세 비교표에는 기준 시점 대비 가격 변화가 함께 표시됩니다.</p>
+          <p>상단 드롭다운에서 시점을 최대 2개까지 체크할 수 있습니다. 먼저 선택한 시점이 기준이 되며, 두 시점을 고르면 아래 시점별 변경 상품 섹션에 차이만 따로 표시됩니다.</p>
         </article>
         <article class="help-block">
           <h3>Filters</h3>
@@ -224,8 +248,12 @@
           <p>같은 사이트의 local / roaming 가격 차이를 비교합니다. 사이트와 표시 개수를 조절해 필요한 카드만 집중해서 볼 수 있고, 카드 클릭 후에도 섹션 안에서 바로 드릴다운 해제가 가능합니다.</p>
         </article>
         <article class="help-block">
+          <h3>Snapshot Diff</h3>
+          <p>선택한 2개 시점 사이에서 가격이 달라졌거나 한쪽 시점에만 존재하는 상품만 따로 모아 보여줍니다. 현재 필터 조건이 그대로 적용됩니다.</p>
+        </article>
+        <article class="help-block">
           <h3>Drill-down</h3>
-          <p>현재 선택한 조건의 비교 행을 표로 보여줍니다. 복수 시점을 선택한 경우 각 행에 시점별 가격 차이가 함께 표시되며, Excel 다운로드에도 비교 요약이 포함됩니다.</p>
+          <p>현재 선택한 조건의 비교 행을 표로 보여줍니다. 시점 비교 정보는 별도 섹션에서 확인하고, 상세표와 Excel 다운로드는 현재 기준 시점 데이터 자체에 집중합니다.</p>
         </article>
       </div>
     </section>

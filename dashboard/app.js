@@ -36,7 +36,9 @@ const state = {
 const elements = {
   lastCollected: document.getElementById("last-collected"),
   runId: document.getElementById("run-id"),
-  primarySnapshotFilter: document.getElementById("primary-snapshot-filter"),
+  snapshotDropdownButton: document.getElementById("snapshot-dropdown-button"),
+  snapshotDropdownLabel: document.getElementById("snapshot-dropdown-label"),
+  snapshotDropdownPanel: document.getElementById("snapshot-dropdown-panel"),
   snapshotChecklist: document.getElementById("snapshot-checklist"),
   snapshotSelectionHelp: document.getElementById("snapshot-selection-help"),
   snapshotMeta: document.getElementById("snapshot-meta"),
@@ -67,6 +69,8 @@ const elements = {
   premiumSiteFilter: document.getElementById("premium-site-filter"),
   premiumLimitFilter: document.getElementById("premium-limit-filter"),
   premiumList: document.getElementById("premium-list"),
+  snapshotDiffMeta: document.getElementById("snapshot-diff-meta"),
+  snapshotDiffList: document.getElementById("snapshot-diff-list"),
   downloadCsv: document.getElementById("download-csv"),
   comparisonBody: document.getElementById("comparison-body"),
   tableMeta: document.getElementById("table-meta"),
@@ -95,7 +99,7 @@ async function loadDashboard() {
     return;
   }
 
-  elements.primarySnapshotFilter.disabled = true;
+  elements.snapshotDropdownButton.disabled = true;
   elements.snapshotChecklist.innerHTML = "";
   elements.snapshotSelectionHelp.textContent = "기본 최신 데이터만 표시됩니다.";
 
@@ -169,7 +173,7 @@ function normalizeSelectedSnapshotRunIds(selectedRunIds, primaryRunId) {
     normalized.unshift(primaryRunId);
   }
 
-  return normalized;
+  return normalized.slice(0, 2);
 }
 
 async function updateSnapshotSelection({ primaryRunId, selectedRunIds, resetFilters = false }) {
@@ -261,21 +265,18 @@ function renderSnapshotControls() {
     return;
   }
 
-  populateSelect(
-    elements.primarySnapshotFilter,
-    snapshots.map((snapshot) => [snapshot.run_id, buildSnapshotLabel(snapshot)])
-  );
-  elements.primarySnapshotFilter.disabled = false;
-  setSelectValue(elements.primarySnapshotFilter, state.primarySnapshotRunId);
+  elements.snapshotDropdownButton.disabled = false;
 
   elements.snapshotChecklist.innerHTML = "";
+  const selectionCount = state.selectedSnapshotRunIds.length;
   for (const snapshot of snapshots) {
     const isPrimary = snapshot.run_id === state.primarySnapshotRunId;
     const isChecked = state.selectedSnapshotRunIds.includes(snapshot.run_id);
+    const isDisabled = !isChecked && selectionCount >= 2;
     const wrapper = document.createElement("label");
     wrapper.className = `snapshot-option${isPrimary ? " is-primary" : ""}`;
     wrapper.innerHTML = `
-      <input type="checkbox" value="${escapeHtml(snapshot.run_id)}" ${isChecked ? "checked" : ""}>
+      <input type="checkbox" value="${escapeHtml(snapshot.run_id)}" ${isChecked ? "checked" : ""} ${isDisabled ? "disabled" : ""}>
       <span class="snapshot-option-copy">
         <strong>${escapeHtml(formatDate(snapshot.collected_at))}</strong>
         <small>${escapeHtml(buildSnapshotScope(snapshot))}</small>
@@ -284,10 +285,18 @@ function renderSnapshotControls() {
     elements.snapshotChecklist.appendChild(wrapper);
   }
 
-  const comparisonCount = Math.max(0, state.selectedSnapshotRunIds.length - 1);
-  elements.snapshotSelectionHelp.textContent = comparisonCount
-    ? `기준 시점 대비 ${comparisonCount}개 시점의 가격 차이를 상세 비교표에 표시합니다.`
-    : "비교할 시점을 추가 선택하면 기준 시점 대비 가격 차이를 함께 표시합니다.";
+  const selectedSnapshots = state.selectedSnapshotRunIds
+    .map((runId) => getSnapshotByRunId(runId))
+    .filter((snapshot) => snapshot != null);
+  elements.snapshotDropdownLabel.textContent = selectedSnapshots.length
+    ? selectedSnapshots
+      .map((snapshot, index) => `${index === 0 ? "기준" : "비교"}: ${formatDate(snapshot.collected_at)}`)
+      .join(" / ")
+    : "시점을 선택하세요";
+
+  elements.snapshotSelectionHelp.textContent = selectionCount === 2
+    ? "2개 시점을 선택했습니다. 먼저 체크한 시점이 기준이며, 변경 상품 섹션에 차이만 표시됩니다."
+    : "드롭다운에서 시점을 최대 2개까지 체크할 수 있습니다.";
 }
 
 function bindEvents() {
@@ -306,17 +315,9 @@ function bindEvents() {
     });
   }
 
-  elements.primarySnapshotFilter.addEventListener("change", async () => {
-    const primaryRunId = elements.primarySnapshotFilter.value;
-    const selectedRunIds = state.selectedSnapshotRunIds.includes(primaryRunId)
-      ? state.selectedSnapshotRunIds
-      : [primaryRunId, ...state.selectedSnapshotRunIds];
-
-    await updateSnapshotSelection({
-      primaryRunId,
-      selectedRunIds,
-      resetFilters: true,
-    });
+  elements.snapshotDropdownButton.addEventListener("click", () => {
+    const isExpanded = elements.snapshotDropdownButton.getAttribute("aria-expanded") === "true";
+    setSnapshotDropdownOpen(!isExpanded);
   });
 
   elements.snapshotChecklist.addEventListener("change", async (event) => {
@@ -325,14 +326,11 @@ function bindEvents() {
       return;
     }
 
-    const checkedRunIds = Array.from(
-      elements.snapshotChecklist.querySelectorAll('input[type="checkbox"]:checked')
-    ).map((input) => input.value);
-
-    let primaryRunId = state.primarySnapshotRunId;
-    if (!checkedRunIds.includes(primaryRunId)) {
-      primaryRunId = checkedRunIds[0] ?? state.primarySnapshotRunId;
-    }
+    const nextSelectedRunIds = target.checked
+      ? [...state.selectedSnapshotRunIds, target.value]
+      : state.selectedSnapshotRunIds.filter((runId) => runId !== target.value);
+    const checkedRunIds = normalizeSelectedSnapshotRunIds(nextSelectedRunIds, null);
+    const primaryRunId = checkedRunIds[0] ?? state.primarySnapshotRunId;
 
     if (!primaryRunId) {
       renderSnapshotControls();
@@ -344,6 +342,19 @@ function bindEvents() {
       selectedRunIds: checkedRunIds.length ? checkedRunIds : [primaryRunId],
       resetFilters: false,
     });
+  });
+
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Node)) {
+      return;
+    }
+    if (
+      !elements.snapshotDropdownButton.contains(target)
+      && !elements.snapshotDropdownPanel.contains(target)
+    ) {
+      setSnapshotDropdownOpen(false);
+    }
   });
 
   elements.distributionToggle.addEventListener("click", () => {
@@ -427,6 +438,7 @@ function render() {
   renderSummary(rows);
   renderPriceBands();
   renderPremiumRows();
+  renderSnapshotDiff(rows);
   renderTable(rows);
   updateDrilldownButtons();
 }
@@ -590,29 +602,7 @@ function renderPremiumRows() {
 }
 
 function getFilteredRows() {
-  const rows = [...(state.payload?.comparison_rows ?? [])];
-  const filtered = rows.filter((row) => {
-    if (state.filters.site !== "all" && row.site !== state.filters.site) return false;
-    if (state.filters.country !== "all" && row.country_code !== state.filters.country) return false;
-    if (state.filters.days !== "all" && String(row.days) !== state.filters.days) return false;
-    if (state.filters.quota !== "all" && row.data_quota_label !== state.filters.quota) return false;
-    if (state.filters.network !== "all" && row.network_type !== state.filters.network) return false;
-    return true;
-  });
-
-  if (state.filters.sort === "days") {
-    filtered.sort((a, b) => (a.days ?? 0) - (b.days ?? 0) || (a.lowest_price_krw ?? 0) - (b.lowest_price_krw ?? 0));
-  } else if (state.filters.sort === "site") {
-    filtered.sort((a, b) => a.site.localeCompare(b.site) || (a.days ?? 0) - (b.days ?? 0));
-  } else {
-    filtered.sort(
-      (a, b) =>
-        (a.lowest_price_krw ?? Number.MAX_SAFE_INTEGER) - (b.lowest_price_krw ?? Number.MAX_SAFE_INTEGER)
-        || (a.days ?? 0) - (b.days ?? 0)
-    );
-  }
-
-  return filtered;
+  return sortRows((state.payload?.comparison_rows ?? []).filter(matchesGlobalFilters));
 }
 
 function getFilteredPriceBands() {
@@ -666,6 +656,33 @@ function getSelectedComparisonSnapshots() {
     .filter((snapshot) => snapshot != null);
 }
 
+function matchesGlobalFilters(row) {
+  if (state.filters.site !== "all" && row.site !== state.filters.site) return false;
+  if (state.filters.country !== "all" && row.country_code !== state.filters.country) return false;
+  if (state.filters.days !== "all" && String(row.days) !== state.filters.days) return false;
+  if (state.filters.quota !== "all" && row.data_quota_label !== state.filters.quota) return false;
+  if (state.filters.network !== "all" && row.network_type !== state.filters.network) return false;
+  return true;
+}
+
+function sortRows(rows) {
+  const sorted = [...rows];
+
+  if (state.filters.sort === "days") {
+    sorted.sort((a, b) => (a.days ?? 0) - (b.days ?? 0) || (a.lowest_price_krw ?? 0) - (b.lowest_price_krw ?? 0));
+  } else if (state.filters.sort === "site") {
+    sorted.sort((a, b) => a.site.localeCompare(b.site) || (a.days ?? 0) - (b.days ?? 0));
+  } else {
+    sorted.sort(
+      (a, b) =>
+        (a.lowest_price_krw ?? Number.MAX_SAFE_INTEGER) - (b.lowest_price_krw ?? Number.MAX_SAFE_INTEGER)
+        || (a.days ?? 0) - (b.days ?? 0)
+    );
+  }
+
+  return sorted;
+}
+
 function createComparisonKey(row) {
   return [
     row.country_code ?? "",
@@ -684,37 +701,34 @@ function buildComparisonLookup(rows) {
   return lookup;
 }
 
-function getComparisonDescriptors(rows) {
-  const primarySnapshot = state.currentSnapshot;
-  const lookups = new Map();
-  const snapshots = [];
-
-  for (const snapshot of getSelectedComparisonSnapshots()) {
-    const payload = state.snapshotPayloadCache.get(snapshot.run_id);
-    if (!payload || typeof payload.then === "function") {
-      continue;
-    }
-    lookups.set(snapshot.run_id, buildComparisonLookup(payload.comparison_rows ?? []));
-    snapshots.push(snapshot);
+function buildComparisonItem(primaryRow, compareRow, primarySnapshot, compareSnapshot) {
+  if (!primaryRow && compareRow) {
+    return {
+      label: `${formatDate(compareSnapshot.collected_at)} 비교`,
+      value: "신규 노출",
+      detail: compareRow.lowest_price_krw != null ? `${fmt.format(compareRow.lowest_price_krw)}원` : "가격 정보 없음",
+      tone: "is-up",
+      changed: true,
+    };
   }
 
-  return rows.map((row) => {
-    const key = createComparisonKey(row);
-    const items = snapshots.map((snapshot) => {
-      const compareRow = lookups.get(snapshot.run_id)?.get(key) ?? null;
-      return buildComparisonItem(row, compareRow, primarySnapshot, snapshot);
-    });
-    return { row, items };
-  });
-}
+  if (primaryRow && !compareRow) {
+    return {
+      label: `${formatDate(compareSnapshot.collected_at)} 비교`,
+      value: "비교 시점 없음",
+      detail: `${formatDate(primarySnapshot?.collected_at)} ${fmt.format(primaryRow.lowest_price_krw ?? 0)}원`,
+      tone: "is-missing",
+      changed: true,
+    };
+  }
 
-function buildComparisonItem(primaryRow, compareRow, primarySnapshot, compareSnapshot) {
-  if (!compareRow || compareRow.lowest_price_krw == null || primaryRow.lowest_price_krw == null) {
+  if (!primaryRow || !compareRow || compareRow.lowest_price_krw == null || primaryRow.lowest_price_krw == null) {
     return {
       label: `${formatDate(compareSnapshot.collected_at)} 비교`,
       value: "비교 불가",
       detail: compareRow?.lowest_price_krw != null ? `${fmt.format(compareRow.lowest_price_krw)}원` : "동일 조건 없음",
       tone: "is-missing",
+      changed: true,
     };
   }
 
@@ -725,40 +739,98 @@ function buildComparisonItem(primaryRow, compareRow, primarySnapshot, compareSna
     value: `${sign}${fmt.format(delta)}원`,
     detail: `${formatDate(primarySnapshot?.collected_at)} ${fmt.format(primaryRow.lowest_price_krw)}원 → ${fmt.format(compareRow.lowest_price_krw)}원`,
     tone: delta > 0 ? "is-up" : delta < 0 ? "is-down" : "",
+    changed: delta !== 0,
   };
 }
 
-function buildComparisonMarkup(items) {
-  if (!items.length) {
-    return '<span class="comparison-empty">기준 시점만 선택됨</span>';
+function getChangedComparisonEntries(rows) {
+  const comparisonSnapshots = getSelectedComparisonSnapshots();
+  if (!comparisonSnapshots.length) {
+    return [];
   }
 
-  return `
-    <div class="comparison-stack">
-      ${items.map((item) => `
-        <div class="comparison-chip ${item.tone}">
-          <strong>${escapeHtml(item.value)}</strong>
-          <small>${escapeHtml(item.label)} · ${escapeHtml(item.detail)}</small>
-        </div>
-      `).join("")}
-    </div>
-  `;
+  const primarySnapshot = state.currentSnapshot;
+  const compareSnapshot = comparisonSnapshots[0];
+  const comparePayload = state.snapshotPayloadCache.get(compareSnapshot.run_id);
+  if (!comparePayload || typeof comparePayload.then === "function") {
+    return [];
+  }
+
+  const primaryRows = sortRows(rows);
+  const compareRows = sortRows((comparePayload.comparison_rows ?? []).filter(matchesGlobalFilters));
+  const primaryLookup = buildComparisonLookup(primaryRows);
+  const compareLookup = buildComparisonLookup(compareRows);
+  const unionKeys = Array.from(new Set([...primaryLookup.keys(), ...compareLookup.keys()]));
+
+  return unionKeys
+    .map((key) => {
+      const primaryRow = primaryLookup.get(key) ?? null;
+      const compareRow = compareLookup.get(key) ?? null;
+      const row = primaryRow ?? compareRow;
+      const item = buildComparisonItem(primaryRow, compareRow, primarySnapshot, compareSnapshot);
+      return row ? { row, items: [item] } : null;
+    })
+    .filter((entry) => entry && entry.items.some((item) => item.changed))
+    .sort((a, b) => {
+      const aPrice = a.row.lowest_price_krw ?? Number.MAX_SAFE_INTEGER;
+      const bPrice = b.row.lowest_price_krw ?? Number.MAX_SAFE_INTEGER;
+      return aPrice - bPrice || (a.row.days ?? 0) - (b.row.days ?? 0);
+    });
 }
 
-function buildComparisonSummary(items) {
-  if (!items.length) {
-    return "기준 시점만 선택됨";
+function renderSnapshotDiff(rows) {
+  const comparisonSnapshots = getSelectedComparisonSnapshots();
+  elements.snapshotDiffList.innerHTML = "";
+
+  if (!comparisonSnapshots.length) {
+    elements.snapshotDiffMeta.textContent = "시점 2개를 선택하면 가격 또는 노출 여부가 달라진 상품만 표시합니다.";
+    elements.snapshotDiffList.innerHTML = '<div class="empty-state-card">비교할 시점을 2개 선택해 주세요.</div>';
+    return;
   }
-  return items.map((item) => `${item.label}: ${item.value} (${item.detail})`).join(" | ");
+
+  const changedEntries = getChangedComparisonEntries(rows);
+  elements.snapshotDiffMeta.textContent = `${formatDate(state.currentSnapshot?.collected_at)} 기준 ${fmt.format(changedEntries.length)}개 상품이 달라졌습니다.`;
+
+  if (!changedEntries.length) {
+    elements.snapshotDiffList.innerHTML = '<div class="empty-state-card">현재 필터 조건에서 달라진 상품이 없습니다.</div>';
+    return;
+  }
+
+  for (const entry of changedEntries) {
+    const { row, items } = entry;
+    const item = items[0];
+    const card = document.createElement("article");
+    card.className = "snapshot-diff-card";
+    card.innerHTML = `
+      <div class="snapshot-diff-head">
+        <div>
+          <strong>${escapeHtml(row.country_name_ko)} · ${escapeHtml(row.site_label)} · ${escapeHtml(String(row.days))}일</strong>
+          <small>${escapeHtml(row.data_quota_label || "-")} · ${escapeHtml(row.network_type || "-")}</small>
+        </div>
+        <span class="comparison-chip ${item.tone} snapshot-diff-badge">
+          <strong>${escapeHtml(item.value)}</strong>
+          <small>${escapeHtml(item.label)}</small>
+        </span>
+      </div>
+      <div class="snapshot-diff-values">
+        <span>기준가 ${row.lowest_price_krw != null ? `${fmt.format(row.lowest_price_krw)}원` : "-"}</span>
+        <span>${escapeHtml(item.detail)}</span>
+      </div>
+      <div class="snapshot-diff-foot">
+        <span>${fmt.format(row.option_count)}개 옵션</span>
+        <a class="source-link" href="${row.source_url}" target="_blank" rel="noopener noreferrer">Open</a>
+      </div>
+    `;
+    elements.snapshotDiffList.appendChild(card);
+  }
 }
 
 function renderTable(rows) {
-  const rowComparisons = getComparisonDescriptors(rows);
   const pageCount = Math.max(1, Math.ceil(rows.length / state.pagination.pageSize));
   const currentPage = Math.min(state.pagination.currentPage, pageCount);
   state.pagination.currentPage = currentPage;
   const startIndex = (currentPage - 1) * state.pagination.pageSize;
-  const pagedRows = rowComparisons.slice(startIndex, startIndex + state.pagination.pageSize);
+  const pagedRows = rows.slice(startIndex, startIndex + state.pagination.pageSize);
 
   elements.comparisonBody.innerHTML = "";
   elements.tableMeta.textContent = buildTableMetaText(rows.length, currentPage, pageCount);
@@ -768,7 +840,7 @@ function renderTable(rows) {
   if (!rows.length) {
     const tr = document.createElement("tr");
     const td = document.createElement("td");
-    td.colSpan = 10;
+    td.colSpan = 9;
     td.className = "empty-state";
     td.textContent = "선택한 필터에 맞는 결과가 없습니다.";
     tr.appendChild(td);
@@ -776,8 +848,7 @@ function renderTable(rows) {
     return;
   }
 
-  for (const entry of pagedRows) {
-    const { row, items } = entry;
+  for (const row of pagedRows) {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td><strong>${escapeHtml(row.country_name_ko)}</strong><small>${escapeHtml(row.country_code)}</small></td>
@@ -786,7 +857,6 @@ function renderTable(rows) {
       <td>${escapeHtml(row.data_quota_label || "-")}</td>
       <td>${escapeHtml(row.network_type || "-")}</td>
       <td><strong>${row.lowest_price_krw != null ? `${fmt.format(row.lowest_price_krw)}원` : "-"}</strong><small>${formatDate(row.last_collected_at)}</small></td>
-      <td class="comparison-cell">${buildComparisonMarkup(items)}</td>
       <td>${fmt.format(row.option_count)}</td>
       <td>${escapeHtml(row.sample_option_name || "-")}</td>
       <td><a class="source-link" href="${row.source_url}" target="_blank" rel="noopener noreferrer">Open</a></td>
@@ -837,7 +907,6 @@ function downloadComparisonRows(rows) {
     return;
   }
 
-  const rowComparisons = getComparisonDescriptors(rows);
   const headers = [
     ["country_name_ko", "국가"],
     ["country_code", "국가코드"],
@@ -847,7 +916,6 @@ function downloadComparisonRows(rows) {
     ["data_quota_label", "데이터"],
     ["network_type", "망유형"],
     ["lowest_price_krw", "최저가KRW"],
-    ["comparison_summary", "시점비교"],
     ["option_count", "옵션수"],
     ["sample_option_name", "대표옵션"],
     ["last_collected_at", "수집시각"],
@@ -856,12 +924,9 @@ function downloadComparisonRows(rows) {
 
   const lines = [
     headers.map(([, label]) => toCsvCell(label)).join(","),
-    ...rowComparisons.map(({ row, items }) =>
+    ...rows.map((row) =>
       headers
         .map(([key]) => {
-          if (key === "comparison_summary") {
-            return toCsvCell(buildComparisonSummary(items));
-          }
           const value = key === "last_collected_at" ? formatDate(row[key]) : row[key];
           return toCsvCell(value ?? "");
         })
@@ -1057,8 +1122,14 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
+function setSnapshotDropdownOpen(open) {
+  elements.snapshotDropdownButton.setAttribute("aria-expanded", String(open));
+  elements.snapshotDropdownPanel.hidden = !open;
+}
+
 loadDashboard().catch((error) => {
   elements.snapshotMeta.textContent = error.message;
   elements.tableMeta.textContent = error.message;
-  elements.comparisonBody.innerHTML = `<tr><td class="empty-state" colspan="10">${escapeHtml(error.message)}</td></tr>`;
+  elements.snapshotDiffList.innerHTML = `<div class="empty-state-card">${escapeHtml(error.message)}</div>`;
+  elements.comparisonBody.innerHTML = `<tr><td class="empty-state" colspan="9">${escapeHtml(error.message)}</td></tr>`;
 });
