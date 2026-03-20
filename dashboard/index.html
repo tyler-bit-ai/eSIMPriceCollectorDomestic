@@ -6,7 +6,7 @@
   <title>Domestic eSIM Price Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -57,13 +57,13 @@
         </div>
         <div class="meta-chip">
           <span class="meta-label">Run ID</span>
-          <strong id="run-id">-</strong>
+          <strong id="run-id" class="mono">-</strong>
         </div>
       </div>
     </header>
 
     <main class="content-grid">
-      <section class="panel filters-panel">
+      <section class="panel panel-full filters-panel">
         <div class="panel-header">
           <div>
             <p class="section-kicker">Filters</p>
@@ -88,7 +88,7 @@
         </div>
       </section>
 
-      <section class="panel summary-strip">
+      <section class="panel panel-full summary-strip">
         <article class="summary-stat">
           <span class="kpi-label">표시 행 수</span>
           <strong id="kpi-rows">-</strong>
@@ -169,7 +169,7 @@
         </div>
       </section>
 
-      <section class="panel snapshot-diff-panel">
+      <section class="panel panel-full snapshot-diff-panel">
         <div class="panel-header">
           <div>
             <p class="section-kicker">Snapshot Diff</p>
@@ -180,7 +180,7 @@
         <div id="snapshot-diff-list" class="snapshot-diff-list"></div>
       </section>
 
-      <section class="panel table-panel">
+      <section class="panel panel-full table-panel">
         <div class="panel-header">
           <div>
             <p class="section-kicker">Drill-down</p>
