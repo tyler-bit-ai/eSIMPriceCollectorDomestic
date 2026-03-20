@@ -75,7 +75,7 @@ h1 {
   display: grid;
   gap: 10px;
   margin-top: 20px;
-  max-width: 420px;
+  max-width: 700px;
 }
 
 .snapshot-field {
@@ -83,10 +83,71 @@ h1 {
   gap: 8px;
 }
 
+.snapshot-picker {
+  display: grid;
+  gap: 12px;
+}
+
+.snapshot-multi-field {
+  display: grid;
+  gap: 10px;
+}
+
+.snapshot-field-head {
+  display: grid;
+  gap: 4px;
+}
+
 .snapshot-field span,
 .snapshot-meta {
   font-size: 0.92rem;
   color: var(--muted);
+}
+
+.snapshot-help {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+
+.snapshot-checklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.snapshot-option {
+  display: flex;
+  align-items: start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 251, 245, 0.88);
+}
+
+.snapshot-option input {
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+
+.snapshot-option-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.snapshot-option-copy strong {
+  font-size: 0.92rem;
+}
+
+.snapshot-option-copy small {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.snapshot-option.is-primary {
+  border-color: rgba(180, 79, 47, 0.35);
+  background: rgba(255, 244, 230, 0.94);
 }
 
 .snapshot-meta {
@@ -262,8 +323,13 @@ h1 {
 .section-controls {
   display: flex;
   flex-wrap: wrap;
+  align-items: end;
   gap: 12px;
   margin-bottom: 18px;
+}
+
+.section-clear-button {
+  min-width: 132px;
 }
 
 .filter-field {
@@ -528,6 +594,47 @@ td strong {
 }
 
 td small {
+  color: var(--muted);
+}
+
+.comparison-cell {
+  min-width: 220px;
+}
+
+.comparison-stack {
+  display: grid;
+  gap: 8px;
+}
+
+.comparison-chip {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 251, 245, 0.82);
+}
+
+.comparison-chip strong,
+.comparison-chip small {
+  display: block;
+}
+
+.comparison-chip.is-up {
+  border-color: rgba(180, 79, 47, 0.28);
+  background: rgba(255, 240, 233, 0.95);
+}
+
+.comparison-chip.is-down {
+  border-color: rgba(72, 120, 84, 0.28);
+  background: rgba(239, 247, 240, 0.96);
+}
+
+.comparison-chip.is-missing {
+  background: rgba(31, 26, 23, 0.04);
+}
+
+.comparison-empty {
   color: var(--muted);
 }
 

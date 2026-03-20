@@ -2,6 +2,9 @@ const state = {
   payload: null,
   snapshotIndex: null,
   currentSnapshot: null,
+  primarySnapshotRunId: null,
+  selectedSnapshotRunIds: [],
+  snapshotPayloadCache: new Map(),
   pagination: {
     currentPage: 1,
     pageSize: 10,
@@ -24,12 +27,18 @@ const state = {
     distribution: false,
     premium: false,
   },
+  drilldowns: {
+    distribution: null,
+    premium: null,
+  },
 };
 
 const elements = {
   lastCollected: document.getElementById("last-collected"),
   runId: document.getElementById("run-id"),
-  snapshotFilter: document.getElementById("snapshot-filter"),
+  primarySnapshotFilter: document.getElementById("primary-snapshot-filter"),
+  snapshotChecklist: document.getElementById("snapshot-checklist"),
+  snapshotSelectionHelp: document.getElementById("snapshot-selection-help"),
   snapshotMeta: document.getElementById("snapshot-meta"),
   helpButton: document.getElementById("help-button"),
   helpModal: document.getElementById("help-modal"),
@@ -48,11 +57,13 @@ const elements = {
   kpiCountries: document.getElementById("kpi-countries"),
   distributionToggle: document.getElementById("distribution-toggle"),
   distributionBody: document.getElementById("distribution-body"),
+  distributionClear: document.getElementById("distribution-clear"),
   priceBandCountryFilter: document.getElementById("price-band-country-filter"),
   priceBandLimitFilter: document.getElementById("price-band-limit-filter"),
   priceBandList: document.getElementById("price-band-list"),
   premiumToggle: document.getElementById("premium-toggle"),
   premiumBody: document.getElementById("premium-body"),
+  premiumClear: document.getElementById("premium-clear"),
   premiumSiteFilter: document.getElementById("premium-site-filter"),
   premiumLimitFilter: document.getElementById("premium-limit-filter"),
   premiumList: document.getElementById("premium-list"),
@@ -67,34 +78,42 @@ const elements = {
 };
 
 const fmt = new Intl.NumberFormat("ko-KR");
-
 const PAGE_WINDOW_SIZE = 5;
 
 async function loadDashboard() {
   const snapshotIndex = await tryLoadIndex();
   state.snapshotIndex = snapshotIndex;
+  bindEvents();
 
   if (snapshotIndex?.snapshots?.length) {
-    initializeSnapshotSelector(snapshotIndex);
-    const selected = snapshotIndex.snapshots.find((item) => item.run_id === snapshotIndex.latest_run_id)
-      ?? snapshotIndex.snapshots[0];
-    await loadSnapshot(selected.relative_path, selected);
-  } else {
-    populateSelect(elements.snapshotFilter, [["latest", "기본 최신 데이터"]]);
-    elements.snapshotFilter.disabled = true;
-    const payload = await fetchJson("./data/latest.json");
-    state.currentSnapshot = {
-      run_id: payload.summary?.run_id ?? "latest",
-      collected_at: payload.summary?.last_collected_at ?? null,
-      label: "기본 최신 데이터",
-      relative_path: "latest.json",
-      selected_sites: payload.summary?.selected_sites ?? [],
-      selected_countries: payload.summary?.selected_countries ?? [],
-    };
-    applyPayload(payload, { resetFilters: true });
+    const latestSnapshot = getSnapshotByRunId(snapshotIndex.latest_run_id) ?? snapshotIndex.snapshots[0];
+    await updateSnapshotSelection({
+      primaryRunId: latestSnapshot.run_id,
+      selectedRunIds: [latestSnapshot.run_id],
+      resetFilters: true,
+    });
+    return;
   }
 
-  bindEvents();
+  elements.primarySnapshotFilter.disabled = true;
+  elements.snapshotChecklist.innerHTML = "";
+  elements.snapshotSelectionHelp.textContent = "기본 최신 데이터만 표시됩니다.";
+
+  const payload = await fetchJson("./data/latest.json");
+  const fallbackSnapshot = {
+    run_id: payload.summary?.run_id ?? "latest",
+    collected_at: payload.summary?.last_collected_at ?? null,
+    label: "기본 최신 데이터",
+    relative_path: "latest.json",
+    selected_sites: payload.summary?.selected_sites ?? [],
+    selected_countries: payload.summary?.selected_countries ?? [],
+  };
+
+  state.primarySnapshotRunId = fallbackSnapshot.run_id;
+  state.selectedSnapshotRunIds = [fallbackSnapshot.run_id];
+  state.currentSnapshot = fallbackSnapshot;
+  state.snapshotPayloadCache.set(fallbackSnapshot.run_id, payload);
+  applyPayload(payload, { resetFilters: true });
 }
 
 async function tryLoadIndex() {
@@ -113,11 +132,66 @@ async function fetchJson(path) {
   return response.json();
 }
 
-async function loadSnapshot(relativePath, snapshot) {
+async function ensureSnapshotPayload(snapshot) {
+  const cached = state.snapshotPayloadCache.get(snapshot.run_id);
+  if (cached) {
+    return cached;
+  }
+
+  const pending = fetchJson(`./data/${snapshot.relative_path}`);
+  state.snapshotPayloadCache.set(snapshot.run_id, pending);
+
+  try {
+    const payload = await pending;
+    state.snapshotPayloadCache.set(snapshot.run_id, payload);
+    return payload;
+  } catch (error) {
+    state.snapshotPayloadCache.delete(snapshot.run_id);
+    throw error;
+  }
+}
+
+function getSnapshotByRunId(runId) {
+  return state.snapshotIndex?.snapshots?.find((item) => item.run_id === runId) ?? null;
+}
+
+function normalizeSelectedSnapshotRunIds(selectedRunIds, primaryRunId) {
+  const knownRunIds = (state.snapshotIndex?.snapshots ?? []).map((item) => item.run_id);
+  const normalized = [];
+
+  for (const runId of selectedRunIds) {
+    if (knownRunIds.includes(runId) && !normalized.includes(runId)) {
+      normalized.push(runId);
+    }
+  }
+
+  if (primaryRunId && !normalized.includes(primaryRunId)) {
+    normalized.unshift(primaryRunId);
+  }
+
+  return normalized;
+}
+
+async function updateSnapshotSelection({ primaryRunId, selectedRunIds, resetFilters = false }) {
+  const primarySnapshot = getSnapshotByRunId(primaryRunId);
+  if (!primarySnapshot) {
+    return;
+  }
+
+  const normalizedSelectedRunIds = normalizeSelectedSnapshotRunIds(selectedRunIds, primaryRunId);
+  const selectedSnapshots = normalizedSelectedRunIds
+    .map((runId) => getSnapshotByRunId(runId))
+    .filter((snapshot) => snapshot != null);
+
   elements.snapshotMeta.textContent = "선택한 스냅샷을 불러오는 중입니다.";
-  const payload = await fetchJson(`./data/${relativePath}`);
-  state.currentSnapshot = snapshot;
-  applyPayload(payload, { resetFilters: true });
+
+  await Promise.all(selectedSnapshots.map((snapshot) => ensureSnapshotPayload(snapshot)));
+  const primaryPayload = await ensureSnapshotPayload(primarySnapshot);
+
+  state.primarySnapshotRunId = primaryRunId;
+  state.selectedSnapshotRunIds = normalizedSelectedRunIds;
+  state.currentSnapshot = primarySnapshot;
+  applyPayload(primaryPayload, { resetFilters });
 }
 
 function applyPayload(payload, { resetFilters }) {
@@ -127,15 +201,8 @@ function applyPayload(payload, { resetFilters }) {
   }
   initializeFilters();
   initializeSectionControls();
+  renderSnapshotControls();
   render();
-}
-
-function initializeSnapshotSelector(indexPayload) {
-  const options = (indexPayload.snapshots ?? []).map((snapshot) => [snapshot.run_id, buildSnapshotLabel(snapshot)]);
-  populateSelect(elements.snapshotFilter, options);
-  const latestRunId = indexPayload.latest_run_id ?? options[0]?.[0] ?? "latest";
-  elements.snapshotFilter.disabled = options.length === 0;
-  elements.snapshotFilter.value = latestRunId;
 }
 
 function initializeFilters() {
@@ -150,10 +217,7 @@ function initializeFilters() {
     elements.quotaFilter,
     [["all", "전체 데이터"], ...filters.data_quota_labels.map((label) => [label, label])]
   );
-  populateSelect(
-    elements.networkFilter,
-    [["all", "전체 망"], ...filters.network_types.map((type) => [type, type])]
-  );
+  populateSelect(elements.networkFilter, [["all", "전체 망"], ...filters.network_types.map((type) => [type, type])]);
   syncGlobalFilterInputs();
 }
 
@@ -169,6 +233,7 @@ function initializeSectionControls() {
   populateSelect(elements.premiumLimitFilter, buildLimitOptions("6"));
 
   syncViewInputs();
+  updateDrilldownButtons();
 }
 
 function buildLimitOptions(defaultValue) {
@@ -190,6 +255,41 @@ function populateSelect(select, options) {
   }
 }
 
+function renderSnapshotControls() {
+  const snapshots = state.snapshotIndex?.snapshots ?? [];
+  if (!snapshots.length) {
+    return;
+  }
+
+  populateSelect(
+    elements.primarySnapshotFilter,
+    snapshots.map((snapshot) => [snapshot.run_id, buildSnapshotLabel(snapshot)])
+  );
+  elements.primarySnapshotFilter.disabled = false;
+  setSelectValue(elements.primarySnapshotFilter, state.primarySnapshotRunId);
+
+  elements.snapshotChecklist.innerHTML = "";
+  for (const snapshot of snapshots) {
+    const isPrimary = snapshot.run_id === state.primarySnapshotRunId;
+    const isChecked = state.selectedSnapshotRunIds.includes(snapshot.run_id);
+    const wrapper = document.createElement("label");
+    wrapper.className = `snapshot-option${isPrimary ? " is-primary" : ""}`;
+    wrapper.innerHTML = `
+      <input type="checkbox" value="${escapeHtml(snapshot.run_id)}" ${isChecked ? "checked" : ""}>
+      <span class="snapshot-option-copy">
+        <strong>${escapeHtml(formatDate(snapshot.collected_at))}</strong>
+        <small>${escapeHtml(buildSnapshotScope(snapshot))}</small>
+      </span>
+    `;
+    elements.snapshotChecklist.appendChild(wrapper);
+  }
+
+  const comparisonCount = Math.max(0, state.selectedSnapshotRunIds.length - 1);
+  elements.snapshotSelectionHelp.textContent = comparisonCount
+    ? `기준 시점 대비 ${comparisonCount}개 시점의 가격 차이를 상세 비교표에 표시합니다.`
+    : "비교할 시점을 추가 선택하면 기준 시점 대비 가격 차이를 함께 표시합니다.";
+}
+
 function bindEvents() {
   const mapping = [
     [elements.siteFilter, "site"],
@@ -202,17 +302,48 @@ function bindEvents() {
 
   for (const [element, key] of mapping) {
     element.addEventListener("change", () => {
-      state.filters[key] = element.value;
-      render();
+      applyFilters({ [key]: element.value });
     });
   }
 
-  elements.snapshotFilter.addEventListener("change", async () => {
-    const snapshot = state.snapshotIndex?.snapshots?.find((item) => item.run_id === elements.snapshotFilter.value);
-    if (!snapshot) {
+  elements.primarySnapshotFilter.addEventListener("change", async () => {
+    const primaryRunId = elements.primarySnapshotFilter.value;
+    const selectedRunIds = state.selectedSnapshotRunIds.includes(primaryRunId)
+      ? state.selectedSnapshotRunIds
+      : [primaryRunId, ...state.selectedSnapshotRunIds];
+
+    await updateSnapshotSelection({
+      primaryRunId,
+      selectedRunIds,
+      resetFilters: true,
+    });
+  });
+
+  elements.snapshotChecklist.addEventListener("change", async (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement) || target.type !== "checkbox") {
       return;
     }
-    await loadSnapshot(snapshot.relative_path, snapshot);
+
+    const checkedRunIds = Array.from(
+      elements.snapshotChecklist.querySelectorAll('input[type="checkbox"]:checked')
+    ).map((input) => input.value);
+
+    let primaryRunId = state.primarySnapshotRunId;
+    if (!checkedRunIds.includes(primaryRunId)) {
+      primaryRunId = checkedRunIds[0] ?? state.primarySnapshotRunId;
+    }
+
+    if (!primaryRunId) {
+      renderSnapshotControls();
+      return;
+    }
+
+    await updateSnapshotSelection({
+      primaryRunId,
+      selectedRunIds: checkedRunIds.length ? checkedRunIds : [primaryRunId],
+      resetFilters: false,
+    });
   });
 
   elements.distributionToggle.addEventListener("click", () => {
@@ -221,6 +352,14 @@ function bindEvents() {
 
   elements.premiumToggle.addEventListener("click", () => {
     togglePanel("premium");
+  });
+
+  elements.distributionClear.addEventListener("click", () => {
+    clearDrilldown("distribution");
+  });
+
+  elements.premiumClear.addEventListener("click", () => {
+    clearDrilldown("premium");
   });
 
   elements.priceBandCountryFilter.addEventListener("change", () => {
@@ -284,11 +423,12 @@ function bindEvents() {
 function render() {
   const rows = getFilteredRows();
   renderHeader();
-  renderSummary(rows);
   renderPanels();
+  renderSummary(rows);
   renderPriceBands();
   renderPremiumRows();
   renderTable(rows);
+  updateDrilldownButtons();
 }
 
 function renderPanels() {
@@ -313,9 +453,19 @@ function buildSnapshotMeta() {
     return "선택된 스냅샷 정보가 없습니다.";
   }
 
+  const parts = [`${formatDate(snapshot.collected_at)} 기준`, buildSnapshotScope(snapshot)];
+  const comparisonSnapshots = getSelectedComparisonSnapshots();
+  if (comparisonSnapshots.length) {
+    parts.push(`비교 ${comparisonSnapshots.map((item) => formatDate(item.collected_at)).join(", ")}`);
+  }
+
+  return parts.join(" · ");
+}
+
+function buildSnapshotScope(snapshot) {
   const siteText = snapshot.selected_sites?.length ? snapshot.selected_sites.join(", ") : "전체 사이트";
   const countryText = snapshot.selected_countries?.length ? snapshot.selected_countries.join(", ") : "전체 국가";
-  return `${formatDate(snapshot.collected_at)} 기준 · ${siteText} · ${countryText}`;
+  return `${siteText} · ${countryText}`;
 }
 
 function renderSummary(rows) {
@@ -331,6 +481,7 @@ function renderPriceBands() {
     elements.priceBandList.innerHTML = "";
     return;
   }
+
   const bands = getFilteredPriceBands();
   elements.priceBandList.innerHTML = "";
 
@@ -378,7 +529,7 @@ function renderPriceBands() {
         </div>
       `;
       item.addEventListener("click", () => {
-        applyFilters({
+        applySectionDrilldown("distribution", {
           country: band.country_code ?? "all",
           days: cell.days != null ? String(cell.days) : "all",
           sort: "price",
@@ -397,6 +548,7 @@ function renderPremiumRows() {
     elements.premiumList.innerHTML = "";
     return;
   }
+
   const rows = getFilteredPremiumRows();
   elements.premiumList.innerHTML = "";
 
@@ -425,7 +577,7 @@ function renderPremiumRows() {
       </div>
     `;
     card.addEventListener("click", () => {
-      applyFilters({
+      applySectionDrilldown("premium", {
         site: row.site ?? "all",
         country: row.country_code ?? "all",
         days: row.days != null ? String(row.days) : "all",
@@ -438,7 +590,7 @@ function renderPremiumRows() {
 }
 
 function getFilteredRows() {
-  const rows = [...state.payload.comparison_rows];
+  const rows = [...(state.payload?.comparison_rows ?? [])];
   const filtered = rows.filter((row) => {
     if (state.filters.site !== "all" && row.site !== state.filters.site) return false;
     if (state.filters.country !== "all" && row.country_code !== state.filters.country) return false;
@@ -449,26 +601,27 @@ function getFilteredRows() {
   });
 
   if (state.filters.sort === "days") {
-    filtered.sort((a, b) => a.days - b.days || a.lowest_price_krw - b.lowest_price_krw);
+    filtered.sort((a, b) => (a.days ?? 0) - (b.days ?? 0) || (a.lowest_price_krw ?? 0) - (b.lowest_price_krw ?? 0));
   } else if (state.filters.sort === "site") {
-    filtered.sort((a, b) => a.site.localeCompare(b.site) || a.days - b.days);
+    filtered.sort((a, b) => a.site.localeCompare(b.site) || (a.days ?? 0) - (b.days ?? 0));
   } else {
-    filtered.sort((a, b) => a.lowest_price_krw - b.lowest_price_krw || a.days - b.days);
+    filtered.sort(
+      (a, b) =>
+        (a.lowest_price_krw ?? Number.MAX_SAFE_INTEGER) - (b.lowest_price_krw ?? Number.MAX_SAFE_INTEGER)
+        || (a.days ?? 0) - (b.days ?? 0)
+    );
   }
 
   return filtered;
 }
 
 function getFilteredPriceBands() {
-  const filtered = (state.payload.price_band_matrix ?? [])
+  const filtered = (state.payload?.price_band_matrix ?? [])
     .filter((band) => state.filters.country === "all" || band.country_code === state.filters.country)
     .filter((band) => state.views.priceBandCountry === "all" || band.country_code === state.views.priceBandCountry)
     .map((band) => ({
       ...band,
-      day_cells: band.day_cells.filter((cell) => {
-        if (state.filters.days !== "all" && String(cell.days) !== state.filters.days) return false;
-        return true;
-      }),
+      day_cells: band.day_cells.filter((cell) => state.filters.days === "all" || String(cell.days) === state.filters.days),
     }))
     .filter((band) => band.day_cells.length > 0)
     .sort((a, b) => {
@@ -481,7 +634,7 @@ function getFilteredPriceBands() {
 }
 
 function getFilteredPremiumRows() {
-  const filtered = [...(state.payload.network_premium_summary ?? [])]
+  const filtered = [...(state.payload?.network_premium_summary ?? [])]
     .filter((row) => {
       if (state.filters.site !== "all" && row.site !== state.filters.site) return false;
       if (state.filters.country !== "all" && row.country_code !== state.filters.country) return false;
@@ -490,7 +643,7 @@ function getFilteredPremiumRows() {
       if (state.views.premiumSite !== "all" && row.site !== state.views.premiumSite) return false;
       return true;
     })
-    .sort((a, b) => Math.abs(b.premium_krw || 0) - Math.abs(a.premium_krw || 0) || a.days - b.days);
+    .sort((a, b) => Math.abs(b.premium_krw || 0) - Math.abs(a.premium_krw || 0) || (a.days ?? 0) - (b.days ?? 0));
 
   return applyLimit(filtered, state.views.premiumLimit);
 }
@@ -506,22 +659,116 @@ function applyLimit(rows, limitValue) {
   return rows.slice(0, limit);
 }
 
+function getSelectedComparisonSnapshots() {
+  return state.selectedSnapshotRunIds
+    .filter((runId) => runId !== state.primarySnapshotRunId)
+    .map((runId) => getSnapshotByRunId(runId))
+    .filter((snapshot) => snapshot != null);
+}
+
+function createComparisonKey(row) {
+  return [
+    row.country_code ?? "",
+    row.site ?? "",
+    row.days ?? "",
+    row.data_quota_label ?? "",
+    row.network_type ?? "",
+  ].join("|");
+}
+
+function buildComparisonLookup(rows) {
+  const lookup = new Map();
+  for (const row of rows) {
+    lookup.set(createComparisonKey(row), row);
+  }
+  return lookup;
+}
+
+function getComparisonDescriptors(rows) {
+  const primarySnapshot = state.currentSnapshot;
+  const lookups = new Map();
+  const snapshots = [];
+
+  for (const snapshot of getSelectedComparisonSnapshots()) {
+    const payload = state.snapshotPayloadCache.get(snapshot.run_id);
+    if (!payload || typeof payload.then === "function") {
+      continue;
+    }
+    lookups.set(snapshot.run_id, buildComparisonLookup(payload.comparison_rows ?? []));
+    snapshots.push(snapshot);
+  }
+
+  return rows.map((row) => {
+    const key = createComparisonKey(row);
+    const items = snapshots.map((snapshot) => {
+      const compareRow = lookups.get(snapshot.run_id)?.get(key) ?? null;
+      return buildComparisonItem(row, compareRow, primarySnapshot, snapshot);
+    });
+    return { row, items };
+  });
+}
+
+function buildComparisonItem(primaryRow, compareRow, primarySnapshot, compareSnapshot) {
+  if (!compareRow || compareRow.lowest_price_krw == null || primaryRow.lowest_price_krw == null) {
+    return {
+      label: `${formatDate(compareSnapshot.collected_at)} 비교`,
+      value: "비교 불가",
+      detail: compareRow?.lowest_price_krw != null ? `${fmt.format(compareRow.lowest_price_krw)}원` : "동일 조건 없음",
+      tone: "is-missing",
+    };
+  }
+
+  const delta = compareRow.lowest_price_krw - primaryRow.lowest_price_krw;
+  const sign = delta > 0 ? "+" : "";
+  return {
+    label: `${formatDate(compareSnapshot.collected_at)} 비교`,
+    value: `${sign}${fmt.format(delta)}원`,
+    detail: `${formatDate(primarySnapshot?.collected_at)} ${fmt.format(primaryRow.lowest_price_krw)}원 → ${fmt.format(compareRow.lowest_price_krw)}원`,
+    tone: delta > 0 ? "is-up" : delta < 0 ? "is-down" : "",
+  };
+}
+
+function buildComparisonMarkup(items) {
+  if (!items.length) {
+    return '<span class="comparison-empty">기준 시점만 선택됨</span>';
+  }
+
+  return `
+    <div class="comparison-stack">
+      ${items.map((item) => `
+        <div class="comparison-chip ${item.tone}">
+          <strong>${escapeHtml(item.value)}</strong>
+          <small>${escapeHtml(item.label)} · ${escapeHtml(item.detail)}</small>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function buildComparisonSummary(items) {
+  if (!items.length) {
+    return "기준 시점만 선택됨";
+  }
+  return items.map((item) => `${item.label}: ${item.value} (${item.detail})`).join(" | ");
+}
+
 function renderTable(rows) {
+  const rowComparisons = getComparisonDescriptors(rows);
   const pageCount = Math.max(1, Math.ceil(rows.length / state.pagination.pageSize));
   const currentPage = Math.min(state.pagination.currentPage, pageCount);
   state.pagination.currentPage = currentPage;
   const startIndex = (currentPage - 1) * state.pagination.pageSize;
-  const pagedRows = rows.slice(startIndex, startIndex + state.pagination.pageSize);
+  const pagedRows = rowComparisons.slice(startIndex, startIndex + state.pagination.pageSize);
 
   elements.comparisonBody.innerHTML = "";
-  elements.tableMeta.textContent = `${fmt.format(rows.length)}개 비교 행 · ${fmt.format(currentPage)}/${fmt.format(pageCount)} 페이지`;
+  elements.tableMeta.textContent = buildTableMetaText(rows.length, currentPage, pageCount);
   elements.downloadCsv.disabled = rows.length === 0;
   renderPagination(pageCount, currentPage, rows.length === 0);
 
   if (!rows.length) {
     const tr = document.createElement("tr");
     const td = document.createElement("td");
-    td.colSpan = 9;
+    td.colSpan = 10;
     td.className = "empty-state";
     td.textContent = "선택한 필터에 맞는 결과가 없습니다.";
     tr.appendChild(td);
@@ -529,7 +776,8 @@ function renderTable(rows) {
     return;
   }
 
-  for (const row of pagedRows) {
+  for (const entry of pagedRows) {
+    const { row, items } = entry;
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td><strong>${escapeHtml(row.country_name_ko)}</strong><small>${escapeHtml(row.country_code)}</small></td>
@@ -537,13 +785,24 @@ function renderTable(rows) {
       <td>${escapeHtml(String(row.days))}일</td>
       <td>${escapeHtml(row.data_quota_label || "-")}</td>
       <td>${escapeHtml(row.network_type || "-")}</td>
-      <td><strong>${fmt.format(row.lowest_price_krw)}원</strong><small>${formatDate(row.last_collected_at)}</small></td>
+      <td><strong>${row.lowest_price_krw != null ? `${fmt.format(row.lowest_price_krw)}원` : "-"}</strong><small>${formatDate(row.last_collected_at)}</small></td>
+      <td class="comparison-cell">${buildComparisonMarkup(items)}</td>
       <td>${fmt.format(row.option_count)}</td>
       <td>${escapeHtml(row.sample_option_name || "-")}</td>
       <td><a class="source-link" href="${row.source_url}" target="_blank" rel="noopener noreferrer">Open</a></td>
     `;
     elements.comparisonBody.appendChild(tr);
   }
+}
+
+function buildTableMetaText(rowCount, currentPage, pageCount) {
+  const base = `${fmt.format(rowCount)}개 비교 행 · ${fmt.format(currentPage)}/${fmt.format(pageCount)} 페이지`;
+  const comparisonSnapshots = getSelectedComparisonSnapshots();
+  if (!comparisonSnapshots.length) {
+    return base;
+  }
+  const labels = comparisonSnapshots.map((snapshot) => formatDate(snapshot.collected_at)).join(", ");
+  return `${base} · 기준 ${formatDate(state.currentSnapshot?.collected_at)} vs ${labels}`;
 }
 
 function renderPagination(pageCount, currentPage, isEmpty) {
@@ -578,6 +837,7 @@ function downloadComparisonRows(rows) {
     return;
   }
 
+  const rowComparisons = getComparisonDescriptors(rows);
   const headers = [
     ["country_name_ko", "국가"],
     ["country_code", "국가코드"],
@@ -587,6 +847,7 @@ function downloadComparisonRows(rows) {
     ["data_quota_label", "데이터"],
     ["network_type", "망유형"],
     ["lowest_price_krw", "최저가KRW"],
+    ["comparison_summary", "시점비교"],
     ["option_count", "옵션수"],
     ["sample_option_name", "대표옵션"],
     ["last_collected_at", "수집시각"],
@@ -595,9 +856,12 @@ function downloadComparisonRows(rows) {
 
   const lines = [
     headers.map(([, label]) => toCsvCell(label)).join(","),
-    ...rows.map((row) =>
+    ...rowComparisons.map(({ row, items }) =>
       headers
         .map(([key]) => {
+          if (key === "comparison_summary") {
+            return toCsvCell(buildComparisonSummary(items));
+          }
           const value = key === "last_collected_at" ? formatDate(row[key]) : row[key];
           return toCsvCell(value ?? "");
         })
@@ -655,6 +919,10 @@ function resetFiltersAndViews() {
     premiumSite: "all",
     premiumLimit: "6",
   };
+  state.drilldowns = {
+    distribution: null,
+    premium: null,
+  };
 }
 
 function syncGlobalFilterInputs() {
@@ -678,14 +946,57 @@ function setSelectValue(select, value) {
   select.value = optionValues.includes(value) ? value : optionValues[0] ?? "";
 }
 
-function applyFilters(nextFilters) {
+function applyFilters(nextFilters, options = {}) {
+  const { preserveDrilldowns = false } = options;
   state.filters = {
     ...state.filters,
     ...nextFilters,
   };
   state.pagination.currentPage = 1;
+
+  if (!preserveDrilldowns) {
+    state.drilldowns = {
+      distribution: null,
+      premium: null,
+    };
+  }
+
   syncGlobalFilterInputs();
   render();
+}
+
+function applySectionDrilldown(source, patch) {
+  const previousValues = {};
+  for (const key of Object.keys(patch)) {
+    previousValues[key] = state.filters[key];
+  }
+
+  state.drilldowns = {
+    distribution: null,
+    premium: null,
+    [source]: { previousValues },
+  };
+
+  applyFilters(patch, { preserveDrilldowns: true });
+}
+
+function clearDrilldown(source) {
+  const entry = state.drilldowns[source];
+  if (!entry) {
+    return;
+  }
+
+  state.drilldowns = {
+    distribution: null,
+    premium: null,
+  };
+
+  applyFilters(entry.previousValues ?? {}, { preserveDrilldowns: true });
+}
+
+function updateDrilldownButtons() {
+  elements.distributionClear.disabled = !state.drilldowns.distribution;
+  elements.premiumClear.disabled = !state.drilldowns.premium;
 }
 
 function goToPage(page) {
@@ -726,12 +1037,7 @@ function updatePanelStatus(toggleElement, expanded) {
 }
 
 function buildSnapshotLabel(snapshot) {
-  const base = formatDate(snapshot.collected_at);
-  const scope = [
-    snapshot.selected_sites?.length ? snapshot.selected_sites.join(", ") : "전체 사이트",
-    snapshot.selected_countries?.length ? snapshot.selected_countries.join(", ") : "전체 국가",
-  ].join(" · ");
-  return `${base} · ${scope}`;
+  return `${formatDate(snapshot.collected_at)} · ${buildSnapshotScope(snapshot)}`;
 }
 
 function openHelpModal() {
@@ -754,5 +1060,5 @@ function escapeHtml(value) {
 loadDashboard().catch((error) => {
   elements.snapshotMeta.textContent = error.message;
   elements.tableMeta.textContent = error.message;
-  elements.comparisonBody.innerHTML = `<tr><td class="empty-state" colspan="9">${escapeHtml(error.message)}</td></tr>`;
+  elements.comparisonBody.innerHTML = `<tr><td class="empty-state" colspan="10">${escapeHtml(error.message)}</td></tr>`;
 });

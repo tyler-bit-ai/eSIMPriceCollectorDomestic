@@ -1,0 +1,15 @@
+{
+  "latest_run_id": "run-20260320T012354Z-22f35c62",
+  "generated_at": "2026-03-20T01:23:54.425385+00:00",
+  "snapshots": [
+    {
+      "run_id": "run-20260320T012354Z-22f35c62",
+      "collected_at": "2026-03-20T01:23:54.425385+00:00",
+      "label": "2026-03-20 01:23 UTC · run-20260320T012354Z-22f35c62",
+      "history_date": "2026-03-20",
+      "relative_path": "snapshots/run-20260320T012354Z-22f35c62.json",
+      "selected_sites": [],
+      "selected_countries": []
+    }
+  ]
+}
