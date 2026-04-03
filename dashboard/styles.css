@@ -120,9 +120,13 @@ h1,
 }
 
 h1 {
-  max-width: 12ch;
   font-size: clamp(2rem, 3.4vw, 3.35rem);
   line-height: 0.98;
+}
+
+.hero-title-line {
+  display: block;
+  white-space: nowrap;
 }
 
 .hero-description {
