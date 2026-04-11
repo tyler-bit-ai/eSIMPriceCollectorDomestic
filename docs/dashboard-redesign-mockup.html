@@ -1,0 +1,1455 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>eSIM 대시보드 리디자인 목업</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f3efe5;
+      --paper: rgba(255, 250, 242, 0.82);
+      --paper-strong: #fff9f0;
+      --line: rgba(28, 35, 26, 0.10);
+      --line-strong: rgba(28, 35, 26, 0.18);
+      --text: #1c231a;
+      --muted: #6b7568;
+      --highlight: #c95e2a;
+      --highlight-soft: rgba(201, 94, 42, 0.12);
+      --green: #2f7d4d;
+      --green-soft: rgba(47, 125, 77, 0.12);
+      --green-strong: #1a6b3a;
+      --amber: #b8860b;
+      --amber-soft: rgba(184, 134, 11, 0.12);
+      --red: #c44332;
+      --red-soft: rgba(196, 67, 50, 0.10);
+      --teal: #157a6e;
+      --teal-soft: rgba(21, 122, 110, 0.10);
+      --shadow: 0 16px 48px rgba(47, 38, 22, 0.10);
+      --radius-xl: 24px;
+      --radius-lg: 18px;
+      --radius-md: 12px;
+      --radius-sm: 8px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      min-height: 100vh;
+      font-family: "Noto Sans KR", "Space Grotesk", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(201, 94, 42, 0.16), transparent 22%),
+        radial-gradient(circle at top right, rgba(21, 122, 110, 0.14), transparent 26%),
+        linear-gradient(180deg, var(--bg), #f7f2e9 40%, #efe9dd 100%);
+      line-height: 1.5;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(28, 35, 26, 0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(28, 35, 26, 0.025) 1px, transparent 1px);
+      background-size: 32px 32px;
+      mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.45), transparent 85%);
+    }
+
+    .page {
+      width: min(1380px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 24px 0 64px;
+    }
+
+    /* ── Hero ─────────────────────────────── */
+    .hero {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-xl);
+      padding: 28px 32px;
+      backdrop-filter: blur(14px);
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+    }
+
+    .hero-eyebrow {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: var(--teal);
+      background: var(--teal-soft);
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 6px;
+      margin-bottom: 10px;
+    }
+
+    .hero h1 {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+    }
+
+    .hero-meta {
+      display: flex;
+      gap: 18px;
+      font-size: 13px;
+      color: var(--muted);
+      flex-wrap: wrap;
+    }
+
+    .hero-meta span {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .hero-meta .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .dot-green { background: var(--green); }
+    .dot-amber { background: var(--amber); }
+
+    /* ── Filter Bar ───────────────────────── */
+    .filter-bar {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 16px 24px;
+      backdrop-filter: blur(14px);
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .filter-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .country-tabs {
+      display: flex;
+      gap: 4px;
+    }
+
+    .country-tab {
+      font-size: 13px;
+      font-weight: 500;
+      padding: 6px 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .country-tab:hover { background: var(--highlight-soft); color: var(--highlight); }
+    .country-tab.active {
+      background: var(--highlight);
+      color: #fff;
+      border-color: var(--highlight);
+    }
+
+    .filter-divider {
+      width: 1px;
+      height: 28px;
+      background: var(--line-strong);
+    }
+
+    .filter-select {
+      font-size: 13px;
+      padding: 6px 28px 6px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--line-strong);
+      background: var(--paper-strong);
+      color: var(--text);
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7568'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+    }
+
+    /* ── Site Checkbox Filter ─────────────── */
+    .site-checkboxes {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+
+    .site-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 12px;
+      border-radius: 20px;
+      border: 1px solid var(--line-strong);
+      background: var(--paper-strong);
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+      user-select: none;
+    }
+
+    .site-chip:hover { border-color: var(--teal); color: var(--teal); }
+
+    .site-chip.active {
+      background: var(--teal-soft);
+      border-color: var(--teal);
+      color: var(--teal);
+    }
+
+    .site-chip input[type="checkbox"] {
+      display: none;
+    }
+
+    .site-chip .chip-check {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      border: 1.5px solid var(--line-strong);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      transition: all 0.15s;
+    }
+
+    .site-chip.active .chip-check {
+      background: var(--teal);
+      border-color: var(--teal);
+      color: #fff;
+    }
+
+    /* ── Days Button Group ─────────────────── */
+    .days-group {
+      display: flex;
+      gap: 3px;
+    }
+
+    .days-btn {
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .days-btn:hover { background: var(--highlight-soft); color: var(--highlight); }
+    .days-btn.active {
+      background: var(--highlight);
+      color: #fff;
+      border-color: var(--highlight);
+    }
+
+    /* ── Filter Row ────────────────────────── */
+    .filter-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .filter-row + .filter-row {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+    }
+
+    /* ── Summary Cards ────────────────────── */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 900px) {
+      .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .summary-card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 20px 22px 18px;
+      backdrop-filter: blur(14px);
+      box-shadow: var(--shadow);
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .summary-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 20px 56px rgba(47, 38, 22, 0.14);
+    }
+
+    .summary-card.selected {
+      border-color: var(--highlight);
+      box-shadow: 0 0 0 2px var(--highlight-soft), var(--shadow);
+    }
+
+    .card-country {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .card-flag {
+      font-size: 22px;
+      line-height: 1;
+    }
+
+    .card-price {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -1px;
+      color: var(--green-strong);
+      margin-bottom: 4px;
+    }
+
+    .card-price .won {
+      font-size: 18px;
+      font-weight: 500;
+      color: var(--muted);
+    }
+
+    .card-detail {
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .card-badge {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    /* ── Section Headers ──────────────────── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-size: 15px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title .icon {
+      width: 20px;
+      height: 20px;
+      border-radius: 5px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+    }
+
+    .section-tag {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 3px 10px;
+      border-radius: 6px;
+      color: var(--muted);
+      background: rgba(28, 35, 26, 0.05);
+    }
+
+    /* ── Heatmap ──────────────────────────── */
+    .heatmap-panel {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      backdrop-filter: blur(14px);
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+    }
+
+    .heatmap-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 4px;
+    }
+
+    .heatmap-table th {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      padding: 8px 12px;
+      text-align: center;
+    }
+
+    .heatmap-table th:first-child {
+      text-align: left;
+    }
+
+    .heatmap-table td {
+      text-align: center;
+      padding: 14px 12px;
+      border-radius: var(--radius-sm);
+      font-family: "Space Grotesk", "IBM Plex Mono", monospace;
+      font-size: 14px;
+      font-weight: 500;
+      transition: transform 0.1s;
+      position: relative;
+    }
+
+    .heatmap-table td:hover {
+      transform: scale(1.05);
+      z-index: 1;
+    }
+
+    .heatmap-table .row-label {
+      text-align: left;
+      font-family: "Noto Sans KR", sans-serif;
+      font-weight: 600;
+      font-size: 13px;
+      background: transparent !important;
+      padding-left: 4px;
+    }
+
+    .heatmap-table .row-label .flag {
+      font-size: 18px;
+      margin-right: 6px;
+    }
+
+    /* 히트맵 색상 클래스 */
+    .hm-1 { background: rgba(47, 125, 77, 0.18); color: var(--green-strong); }
+    .hm-2 { background: rgba(47, 125, 77, 0.28); color: var(--green-strong); }
+    .hm-3 { background: rgba(184, 134, 11, 0.15); color: #8a6d0b; }
+    .hm-4 { background: rgba(184, 134, 11, 0.25); color: #8a6d0b; }
+    .hm-5 { background: rgba(201, 94, 42, 0.14); color: #a44a1f; }
+    .hm-6 { background: rgba(201, 94, 42, 0.22); color: #a44a1f; }
+    .hm-7 { background: rgba(196, 67, 50, 0.12); color: var(--red); }
+    .hm-8 { background: rgba(196, 67, 50, 0.20); color: var(--red); }
+
+    .heatmap-legend {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 14px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .legend-bar {
+      display: flex;
+      height: 8px;
+      width: 140px;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .legend-bar span {
+      flex: 1;
+    }
+
+    .legend-bar .lb-1 { background: rgba(47, 125, 77, 0.30); }
+    .legend-bar .lb-2 { background: rgba(47, 125, 77, 0.18); }
+    .legend-bar .lb-3 { background: rgba(184, 134, 11, 0.25); }
+    .legend-bar .lb-4 { background: rgba(201, 94, 42, 0.20); }
+    .legend-bar .lb-5 { background: rgba(196, 67, 50, 0.20); }
+
+    /* ── Two Column Section ───────────────── */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 900px) {
+      .two-col { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      backdrop-filter: blur(14px);
+      box-shadow: var(--shadow);
+    }
+
+    /* ── Vendor Ranking ───────────────────── */
+    .rank-list {
+      list-style: none;
+    }
+
+    .rank-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .rank-item:last-child { border-bottom: none; }
+
+    .rank-medal {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .medal-1 { background: linear-gradient(135deg, #ffd700, #ffec80); color: #7a6200; }
+    .medal-2 { background: linear-gradient(135deg, #c0c0c0, #e8e8e8); color: #5a5a5a; }
+    .medal-3 { background: linear-gradient(135deg, #cd7f32, #e8b87a); color: #6b3f10; }
+    .medal-4 { background: var(--paper-strong); color: var(--muted); border: 1px solid var(--line-strong); }
+
+    .rank-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .rank-name {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .rank-sub {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .rank-price {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--green-strong);
+      white-space: nowrap;
+    }
+
+    .rank-bar-bg {
+      width: 100%;
+      height: 4px;
+      background: var(--line);
+      border-radius: 2px;
+      margin-top: 4px;
+    }
+
+    .rank-bar {
+      height: 100%;
+      border-radius: 2px;
+      background: var(--green);
+    }
+
+    /* ── Premium Analysis ─────────────────── */
+    .premium-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--line);
+      font-size: 13px;
+    }
+
+    .premium-row:last-child { border-bottom: none; }
+
+    .premium-country {
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .premium-badge {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    .badge-local {
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .badge-roaming {
+      background: var(--amber-soft);
+      color: var(--amber);
+    }
+
+    .premium-diff {
+      font-family: "Space Grotesk", sans-serif;
+      font-weight: 600;
+    }
+
+    .diff-negative { color: var(--green); }
+    .diff-positive { color: var(--red); }
+
+    /* ── Value Table ──────────────────────── */
+    .value-table-panel {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      backdrop-filter: blur(14px);
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+
+    .value-table-header {
+      padding: 20px 24px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .data-table thead th {
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      padding: 10px 14px;
+      text-align: left;
+      background: rgba(28, 35, 26, 0.03);
+      border-bottom: 1px solid var(--line);
+      position: sticky;
+      top: 0;
+    }
+
+    .data-table tbody tr {
+      border-bottom: 1px solid var(--line);
+      transition: background 0.1s;
+    }
+
+    .data-table tbody tr:hover { background: rgba(201, 94, 42, 0.04); }
+
+    .data-table td {
+      padding: 10px 14px;
+    }
+
+    .data-table .mono {
+      font-family: "Space Grotesk", "IBM Plex Mono", monospace;
+      font-weight: 500;
+    }
+
+    .data-table .price-cell {
+      font-family: "Space Grotesk", sans-serif;
+      font-weight: 600;
+      color: var(--green-strong);
+    }
+
+    .data-table .unit-price {
+      font-family: "Space Grotesk", sans-serif;
+      font-weight: 600;
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+
+    .unit-best { background: var(--green-soft); color: var(--green); }
+    .unit-good { background: rgba(47, 125, 77, 0.06); color: var(--green); }
+    .unit-mid  { background: var(--amber-soft); color: var(--amber); }
+    .unit-exp  { background: var(--red-soft); color: var(--red); }
+
+    .rank-num {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      background: var(--line);
+      color: var(--text);
+    }
+
+    .rank-top .rank-num {
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    /* ── Detail Table (Collapsible) ───────── */
+    .detail-section {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      backdrop-filter: blur(14px);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .detail-toggle {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 24px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      font-family: inherit;
+    }
+
+    .detail-toggle:hover { background: rgba(28, 35, 26, 0.02); }
+
+    .detail-toggle .arrow {
+      transition: transform 0.2s;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .detail-toggle.open .arrow { transform: rotate(180deg); }
+
+    .detail-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+
+    .detail-body.open {
+      max-height: 600px;
+    }
+
+    .detail-inner {
+      padding: 0 24px 20px;
+    }
+
+    .detail-stats {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 14px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .detail-stats strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    /* ── Footer ───────────────────────────── */
+    .footer {
+      text-align: center;
+      margin-top: 32px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .footer a { color: var(--teal); text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
+
+    /* ── Tooltip ──────────────────────────── */
+    .tooltip-demo {
+      position: relative;
+    }
+
+    .tooltip-demo::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--text);
+      color: #fff;
+      font-size: 11px;
+      padding: 5px 10px;
+      border-radius: 6px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s;
+      z-index: 10;
+    }
+
+    .tooltip-demo:hover::after { opacity: 1; }
+
+    /* ── Snapshot Compare Bar ─────────────── */
+    .snapshot-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-left: auto;
+    }
+
+    .snapshot-select {
+      font-size: 12px;
+      padding: 5px 24px 5px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--line-strong);
+      background: var(--paper-strong);
+      color: var(--text);
+      font-family: inherit;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7568'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+    }
+
+    .vs-badge {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--highlight);
+      background: var(--highlight-soft);
+      padding: 3px 8px;
+      border-radius: 4px;
+    }
+
+    /* ── Price Change Indicator ───────────── */
+    .price-change {
+      font-size: 11px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .change-down { color: var(--green); }
+    .change-up { color: var(--red); }
+    .change-same { color: var(--muted); }
+
+    /* ── Mockup Badge ─────────────────────── */
+    .mockup-badge {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: var(--highlight);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 20px;
+      box-shadow: 0 4px 16px rgba(201, 94, 42, 0.3);
+      z-index: 100;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <!-- ═══ Hero ═══ -->
+    <header class="hero">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px;">
+        <div>
+          <span class="hero-eyebrow">Design Proposal v2</span>
+          <h1>국내 판매 해외 eSIM 가격 비교</h1>
+          <div class="hero-meta">
+            <span><span class="dot dot-green"></span> 수집: 2026-04-01 02:20 KST</span>
+            <span><strong>2,371</strong>개 옵션</span>
+            <span><strong>4</strong>개국 / <strong>4</strong>개 사이트</span>
+          </div>
+        </div>
+        <div class="snapshot-bar">
+          <select class="snapshot-select">
+            <option>최신 (2026-04-01)</option>
+            <option>2026-03-20</option>
+          </select>
+          <span class="vs-badge">비교</span>
+          <select class="snapshot-select">
+            <option>비교 시점 선택</option>
+            <option>2026-03-20</option>
+          </select>
+        </div>
+      </div>
+    </header>
+
+    <!-- ═══ Filter Bar ═══ -->
+    <div class="filter-bar">
+      <!-- 1행: 국가 + 사이트 -->
+      <div class="filter-row">
+        <span class="filter-label">국가</span>
+        <div class="country-tabs">
+          <button class="country-tab active">전체</button>
+          <button class="country-tab">JP 일본</button>
+          <button class="country-tab">PH 필리핀</button>
+          <button class="country-tab">US 미국</button>
+          <button class="country-tab">VN 베트남</button>
+        </div>
+        <div class="filter-divider"></div>
+        <span class="filter-label">사이트</span>
+        <div class="site-checkboxes">
+          <label class="site-chip active" onclick="this.classList.toggle('active')">
+            <input type="checkbox" checked>
+            <span class="chip-check">&#10003;</span>
+            로밍도깨비
+          </label>
+          <label class="site-chip active" onclick="this.classList.toggle('active')">
+            <input type="checkbox" checked>
+            <span class="chip-check">&#10003;</span>
+            핀다이렉트
+          </label>
+          <label class="site-chip active" onclick="this.classList.toggle('active')">
+            <input type="checkbox" checked>
+            <span class="chip-check">&#10003;</span>
+            말톡
+          </label>
+          <label class="site-chip active" onclick="this.classList.toggle('active')">
+            <input type="checkbox" checked>
+            <span class="chip-check">&#10003;</span>
+            유심사
+          </label>
+        </div>
+      </div>
+      <!-- 2행: 일수 + 네트워크 + 용량 -->
+      <div class="filter-row">
+        <span class="filter-label">일수</span>
+        <div class="days-group">
+          <button class="days-btn active">전체</button>
+          <button class="days-btn">1일</button>
+          <button class="days-btn">3일</button>
+          <button class="days-btn">5일</button>
+          <button class="days-btn">7일</button>
+          <button class="days-btn">10일</button>
+          <button class="days-btn">15일</button>
+          <button class="days-btn">30일</button>
+        </div>
+        <div class="filter-divider"></div>
+        <span class="filter-label">네트워크</span>
+        <select class="filter-select">
+          <option>전체</option>
+          <option>Local</option>
+          <option>Roaming</option>
+        </select>
+        <div class="filter-divider"></div>
+        <span class="filter-label">용량</span>
+        <select class="filter-select">
+          <option>전체</option>
+          <option>500MB</option>
+          <option>1GB</option>
+          <option>2GB</option>
+          <option>3GB</option>
+          <option>5GB</option>
+          <option>10GB</option>
+          <option>무제한</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- ═══ Summary Cards ═══ -->
+    <div class="summary-grid">
+      <div class="summary-card selected">
+        <div class="card-country">
+          <span>일본 <span style="color:var(--text);font-weight:600;">Japan</span></span>
+          <span class="card-flag">🇯🇵</span>
+        </div>
+        <div class="card-price"><span class="won">₩</span>600</div>
+        <div class="card-detail">
+          <span>832개 옵션 · 4개 사이트</span>
+          <span class="card-badge">로밍도깨비</span>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="card-country">
+          <span>필리핀 <span style="color:var(--text);font-weight:600;">Philippines</span></span>
+          <span class="card-flag">🇵🇭</span>
+        </div>
+        <div class="card-price"><span class="won">₩</span>800</div>
+        <div class="card-detail">
+          <span>500개 옵션 · 4개 사이트</span>
+          <span class="card-badge" style="background:var(--amber-soft);color:var(--amber);">로밍도깨비</span>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="card-country">
+          <span>베트남 <span style="color:var(--text);font-weight:600;">Vietnam</span></span>
+          <span class="card-flag">🇻🇳</span>
+        </div>
+        <div class="card-price"><span class="won">₩</span>700</div>
+        <div class="card-detail">
+          <span>549개 옵션 · 4개 사이트</span>
+          <span class="card-badge">로밍도깨비</span>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="card-country">
+          <span>미국 <span style="color:var(--text);font-weight:600;">USA</span></span>
+          <span class="card-flag">🇺🇸</span>
+        </div>
+        <div class="card-price"><span class="won">₩</span>1,200</div>
+        <div class="card-detail">
+          <span>490개 옵션 · 4개 사이트</span>
+          <span class="card-badge" style="background:var(--amber-soft);color:var(--amber);">로밍도깨비</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Heatmap ═══ -->
+    <div class="heatmap-panel">
+      <div class="section-header">
+        <div class="section-title">
+          <span class="icon" style="background:var(--green-soft);color:var(--green);">📊</span>
+          국가 x 사용일수 최저가 히트맵
+        </div>
+        <span class="section-tag">1GB 기준 · 색상이 연할수록 저렴</span>
+      </div>
+      <table class="heatmap-table">
+        <thead>
+          <tr>
+            <th style="width:140px;"></th>
+            <th>1일</th>
+            <th>3일</th>
+            <th>7일</th>
+            <th>15일</th>
+            <th>30일</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="row-label"><span class="flag">🇯🇵</span> 일본</td>
+            <td class="hm-1 tooltip-demo" data-tip="로밍도깨비 · roaming">₩1,200</td>
+            <td class="hm-1 tooltip-demo" data-tip="로밍도깨비 · roaming">₩2,900</td>
+            <td class="hm-2 tooltip-demo" data-tip="말톡 · local">₩4,900</td>
+            <td class="hm-3 tooltip-demo" data-tip="말톡 · local">₩8,900</td>
+            <td class="hm-4 tooltip-demo" data-tip="말톡 · local">₩15,900</td>
+          </tr>
+          <tr>
+            <td class="row-label"><span class="flag">🇻🇳</span> 베트남</td>
+            <td class="hm-1 tooltip-demo" data-tip="로밍도깨비 · roaming">₩1,100</td>
+            <td class="hm-1 tooltip-demo" data-tip="로밍도깨비 · roaming">₩2,800</td>
+            <td class="hm-2 tooltip-demo" data-tip="말톡 · local">₩5,100</td>
+            <td class="hm-3 tooltip-demo" data-tip="말톡 · local">₩9,900</td>
+            <td class="hm-4 tooltip-demo" data-tip="말톡 · local">₩18,900</td>
+          </tr>
+          <tr>
+            <td class="row-label"><span class="flag">🇵🇭</span> 필리핀</td>
+            <td class="hm-1 tooltip-demo" data-tip="로밍도깨비 · roaming">₩1,300</td>
+            <td class="hm-2 tooltip-demo" data-tip="로밍도깨비 · roaming">₩3,200</td>
+            <td class="hm-3 tooltip-demo" data-tip="말톡 · local">₩5,800</td>
+            <td class="hm-4 tooltip-demo" data-tip="말톡 · local">₩10,900</td>
+            <td class="hm-5 tooltip-demo" data-tip="말톡 · local">₩19,900</td>
+          </tr>
+          <tr>
+            <td class="row-label"><span class="flag">🇺🇸</span> 미국</td>
+            <td class="hm-2 tooltip-demo" data-tip="로밍도깨비 · roaming">₩1,800</td>
+            <td class="hm-3 tooltip-demo" data-tip="핀다이렉트 · local">₩4,500</td>
+            <td class="hm-4 tooltip-demo" data-tip="말톡 · local">₩8,900</td>
+            <td class="hm-6 tooltip-demo" data-tip="말톡 · local">₩16,900</td>
+            <td class="hm-8 tooltip-demo" data-tip="말톡 · local">₩32,900</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="heatmap-legend">
+        <span>저렴</span>
+        <div class="legend-bar">
+          <span class="lb-1"></span>
+          <span class="lb-2"></span>
+          <span class="lb-3"></span>
+          <span class="lb-4"></span>
+          <span class="lb-5"></span>
+        </div>
+        <span>비쌈</span>
+      </div>
+    </div>
+
+    <!-- ═══ Two Column: Vendor Rank + Premium ═══ -->
+    <div class="two-col">
+
+      <!-- Vendor Ranking -->
+      <div class="panel">
+        <div class="section-header">
+          <div class="section-title">
+            <span class="icon" style="background:rgba(255,215,0,0.15);color:#b8960b;">🏆</span>
+            벤더 경쟁 순위
+          </div>
+          <span class="section-tag">전체 최저가 기준</span>
+        </div>
+        <ul class="rank-list">
+          <li class="rank-item">
+            <div class="rank-medal medal-1">1</div>
+            <div class="rank-info">
+              <div class="rank-name">로밍도깨비</div>
+              <div class="rank-sub">4개국 최저가 확보</div>
+              <div class="rank-bar-bg"><div class="rank-bar" style="width:100%"></div></div>
+            </div>
+            <div class="rank-price">₩600</div>
+          </li>
+          <li class="rank-item">
+            <div class="rank-medal medal-2">2</div>
+            <div class="rank-info">
+              <div class="rank-name">핀다이렉트</div>
+              <div class="rank-sub">가격 경쟁력 양호</div>
+              <div class="rank-bar-bg"><div class="rank-bar" style="width:85%;background:var(--amber)"></div></div>
+            </div>
+            <div class="rank-price">₩700</div>
+          </li>
+          <li class="rank-item">
+            <div class="rank-medal medal-3">3</div>
+            <div class="rank-info">
+              <div class="rank-name">말톡</div>
+              <div class="rank-sub">다양한 옵션 (785개)</div>
+              <div class="rank-bar-bg"><div class="rank-bar" style="width:55%;background:var(--highlight)"></div></div>
+            </div>
+            <div class="rank-price">₩1,100</div>
+          </li>
+          <li class="rank-item">
+            <div class="rank-medal medal-4">4</div>
+            <div class="rank-info">
+              <div class="rank-name">유심사</div>
+              <div class="rank-sub">프리미엄 포지션</div>
+              <div class="rank-bar-bg"><div class="rank-bar" style="width:40%;background:var(--red)"></div></div>
+            </div>
+            <div class="rank-price">₩1,500</div>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Local vs Roaming Premium -->
+      <div class="panel">
+        <div class="section-header">
+          <div class="section-title">
+            <span class="icon" style="background:var(--teal-soft);color:var(--teal);">📡</span>
+            Local vs Roaming 가격 차이
+          </div>
+          <span class="section-tag">평균 프리미엄</span>
+        </div>
+        <div class="premium-row">
+          <div class="premium-country">🇯🇵 일본</div>
+          <div>
+            <span class="premium-badge badge-local">Local 유리</span>
+          </div>
+          <div class="premium-diff diff-negative">-15% 저렴</div>
+        </div>
+        <div class="premium-row">
+          <div class="premium-country">🇻🇳 베트남</div>
+          <div>
+            <span class="premium-badge badge-local">Local 유리</span>
+          </div>
+          <div class="premium-diff diff-negative">-12% 저렴</div>
+        </div>
+        <div class="premium-row">
+          <div class="premium-country">🇵🇭 필리핀</div>
+          <div>
+            <span class="premium-badge badge-roaming">Roaming 유리</span>
+          </div>
+          <div class="premium-diff diff-positive">+8% 저렴</div>
+        </div>
+        <div class="premium-row">
+          <div class="premium-country">🇺🇸 미국</div>
+          <div>
+            <span class="premium-badge badge-local">Local 유리</span>
+          </div>
+          <div class="premium-diff diff-negative">-18% 저렴</div>
+        </div>
+        <div style="margin-top:14px; padding:12px 14px; background:var(--green-soft); border-radius:var(--radius-sm); font-size:12px; color:var(--green);">
+          <strong>인사이트:</strong> 대부분의 국가에서 Local 네트워크가 더 저렴합니다.
+          예외적으로 필리핀은 Roaming이 평균 8% 더 저렴합니다.
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Value Table ═══ -->
+    <div class="value-table-panel">
+      <div class="value-table-header">
+        <div class="section-title">
+          <span class="icon" style="background:var(--highlight-soft);color:var(--highlight);">💎</span>
+          가성비 Top 10 — ₩/GB/일 기준
+        </div>
+        <span class="section-tag">단가가 낮을수록 가성비 우수</span>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width:48px;">#</th>
+            <th>국가</th>
+            <th>사이트</th>
+            <th>일수</th>
+            <th>용량</th>
+            <th>네트워크</th>
+            <th style="text-align:right;">가격</th>
+            <th style="text-align:right;">단가 (₩/GB/일)</th>
+            <th style="text-align:right;">변동</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="rank-top">
+            <td><span class="rank-num">1</span></td>
+            <td>🇯🇵 일본</td>
+            <td>로밍도깨비</td>
+            <td class="mono">30</td>
+            <td>30GB</td>
+            <td><span class="premium-badge badge-roaming">roaming</span></td>
+            <td class="price-cell" style="text-align:right;">₩15,900</td>
+            <td style="text-align:right;"><span class="unit-price unit-best">₩17.7</span></td>
+            <td style="text-align:right;"><span class="price-change change-down">&#9660; 500</span></td>
+          </tr>
+          <tr class="rank-top">
+            <td><span class="rank-num">2</span></td>
+            <td>🇻🇳 베트남</td>
+            <td>로밍도깨비</td>
+            <td class="mono">30</td>
+            <td>30GB</td>
+            <td><span class="premium-badge badge-roaming">roaming</span></td>
+            <td class="price-cell" style="text-align:right;">₩18,900</td>
+            <td style="text-align:right;"><span class="unit-price unit-best">₩21.0</span></td>
+            <td style="text-align:right;"><span class="price-change change-same">&#8212;</span></td>
+          </tr>
+          <tr class="rank-top">
+            <td><span class="rank-num">3</span></td>
+            <td>🇯🇵 일본</td>
+            <td>로밍도깨비</td>
+            <td class="mono">15</td>
+            <td>10GB</td>
+            <td><span class="premium-badge badge-roaming">roaming</span></td>
+            <td class="price-cell" style="text-align:right;">₩8,900</td>
+            <td style="text-align:right;"><span class="unit-price unit-good">₩59.3</span></td>
+            <td style="text-align:right;"><span class="price-change change-down">&#9660; 300</span></td>
+          </tr>
+          <tr>
+            <td><span class="rank-num">4</span></td>
+            <td>🇻🇳 베트남</td>
+            <td>핀다이렉트</td>
+            <td class="mono">30</td>
+            <td>15GB</td>
+            <td><span class="premium-badge badge-local">local</span></td>
+            <td class="price-cell" style="text-align:right;">₩15,500</td>
+            <td style="text-align:right;"><span class="unit-price unit-good">₩34.4</span></td>
+            <td style="text-align:right;"><span class="price-change change-up">&#9650; 200</span></td>
+          </tr>
+          <tr>
+            <td><span class="rank-num">5</span></td>
+            <td>🇵🇭 필리핀</td>
+            <td>로밍도깨비</td>
+            <td class="mono">15</td>
+            <td>10GB</td>
+            <td><span class="premium-badge badge-roaming">roaming</span></td>
+            <td class="price-cell" style="text-align:right;">₩10,900</td>
+            <td style="text-align:right;"><span class="unit-price unit-good">₩72.7</span></td>
+            <td style="text-align:right;"><span class="price-change change-same">&#8212;</span></td>
+          </tr>
+          <tr>
+            <td><span class="rank-num">6</span></td>
+            <td>🇯🇵 일본</td>
+            <td>말톡</td>
+            <td class="mono">7</td>
+            <td>10GB</td>
+            <td><span class="premium-badge badge-local">local</span></td>
+            <td class="price-cell" style="text-align:right;">₩6,900</td>
+            <td style="text-align:right;"><span class="unit-price unit-mid">₩98.6</span></td>
+            <td style="text-align:right;"><span class="price-change change-down">&#9660; 100</span></td>
+          </tr>
+          <tr>
+            <td><span class="rank-num">7</span></td>
+            <td>🇺🇸 미국</td>
+            <td>로밍도깨비</td>
+            <td class="mono">30</td>
+            <td>30GB</td>
+            <td><span class="premium-badge badge-roaming">roaming</span></td>
+            <td class="price-cell" style="text-align:right;">₩32,900</td>
+            <td style="text-align:right;"><span class="unit-price unit-good">₩36.6</span></td>
+            <td style="text-align:right;"><span class="price-change change-up">&#9650; 1,000</span></td>
+          </tr>
+          <tr>
+            <td><span class="rank-num">8</span></td>
+            <td>🇻🇳 베트남</td>
+            <td>말톡</td>
+            <td class="mono">7</td>
+            <td>5GB</td>
+            <td><span class="premium-badge badge-local">local</span></td>
+            <td class="price-cell" style="text-align:right;">₩5,100</td>
+            <td style="text-align:right;"><span class="unit-price unit-mid">₩145.7</span></td>
+            <td style="text-align:right;"><span class="price-change change-same">&#8212;</span></td>
+          </tr>
+          <tr>
+            <td><span class="rank-num">9</span></td>
+            <td>🇵🇭 필리핀</td>
+            <td>핀다이렉트</td>
+            <td class="mono">30</td>
+            <td>20GB</td>
+            <td><span class="premium-badge badge-local">local</span></td>
+            <td class="price-cell" style="text-align:right;">₩19,900</td>
+            <td style="text-align:right;"><span class="unit-price unit-good">₩33.2</span></td>
+            <td style="text-align:right;"><span class="price-change change-down">&#9660; 500</span></td>
+          </tr>
+          <tr>
+            <td><span class="rank-num">10</span></td>
+            <td>🇯🇵 일본</td>
+            <td>핀다이렉트</td>
+            <td class="mono">15</td>
+            <td>5GB</td>
+            <td><span class="premium-badge badge-local">local</span></td>
+            <td class="price-cell" style="text-align:right;">₩8,500</td>
+            <td style="text-align:right;"><span class="unit-price unit-mid">₩113.3</span></td>
+            <td style="text-align:right;"><span class="price-change change-up">&#9650; 300</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ═══ Full Detail Table (Collapsible) ═══ -->
+    <div class="detail-section">
+      <button class="detail-toggle" onclick="this.classList.toggle('open'); this.nextElementSibling.classList.toggle('open');">
+        <span>전체 상세 데이터 (1,697개 비교 행)</span>
+        <span class="arrow">&#9660;</span>
+      </button>
+      <div class="detail-body">
+        <div class="detail-inner">
+          <div class="detail-stats">
+            <span>필터 결과: <strong>1,697</strong>행</span>
+            <span>정렬: <strong>가격 오름차순</strong></span>
+            <span>페이지: <strong>1/170</strong></span>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>국가</th>
+                <th>사이트</th>
+                <th>일수</th>
+                <th>용량</th>
+                <th>네트워크</th>
+                <th>옵션명</th>
+                <th style="text-align:right;">최저가</th>
+                <th style="text-align:right;">옵션 수</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>🇯🇵 일본</td>
+                <td>로밍도깨비</td>
+                <td class="mono">1</td>
+                <td>unlimited</td>
+                <td><span class="premium-badge badge-roaming" style="font-size:10px">roaming</span></td>
+                <td style="font-size:12px;color:var(--muted)">[무제한]일본 1일</td>
+                <td class="price-cell" style="text-align:right;">₩600</td>
+                <td style="text-align:right;" class="mono">1</td>
+              </tr>
+              <tr>
+                <td>🇻🇳 베트남</td>
+                <td>로밍도깨비</td>
+                <td class="mono">1</td>
+                <td>unlimited</td>
+                <td><span class="premium-badge badge-roaming" style="font-size:10px">roaming</span></td>
+                <td style="font-size:12px;color:var(--muted)">[무제한]베트남 1일</td>
+                <td class="price-cell" style="text-align:right;">₩700</td>
+                <td style="text-align:right;" class="mono">1</td>
+              </tr>
+              <tr>
+                <td>🇵🇭 필리핀</td>
+                <td>로밍도깨비</td>
+                <td class="mono">1</td>
+                <td>unlimited</td>
+                <td><span class="premium-badge badge-roaming" style="font-size:10px">roaming</span></td>
+                <td style="font-size:12px;color:var(--muted)">[무제한]필리핀 1일</td>
+                <td class="price-cell" style="text-align:right;">₩800</td>
+                <td style="text-align:right;" class="mono">1</td>
+              </tr>
+              <tr>
+                <td>🇯🇵 일본</td>
+                <td>말톡</td>
+                <td class="mono">1</td>
+                <td>1GB</td>
+                <td><span class="premium-badge badge-local" style="font-size:10px">local</span></td>
+                <td style="font-size:12px;color:var(--muted)">일본Softbank 매일 1GB / 1일</td>
+                <td class="price-cell" style="text-align:right;">₩1,200</td>
+                <td style="text-align:right;" class="mono">3</td>
+              </tr>
+              <tr>
+                <td>🇯🇵 일본</td>
+                <td>로밍도깨비</td>
+                <td class="mono">1</td>
+                <td>1GB</td>
+                <td><span class="premium-badge badge-roaming" style="font-size:10px">roaming</span></td>
+                <td style="font-size:12px;color:var(--muted)">[1UP]일본 무제한 1일</td>
+                <td class="price-cell" style="text-align:right;">₩1,200</td>
+                <td style="text-align:right;" class="mono">1</td>
+              </tr>
+              <tr style="background:rgba(201,94,42,0.03);">
+                <td colspan="8" style="text-align:center; color:var(--muted); font-size:12px; padding:16px;">
+                  ... 스크롤하여 1,697개 행 모두 확인 가능 (가상 스크롤링 적용 예정) ...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Footer ═══ -->
+    <div class="footer">
+      <p>eSIM Price Collector Domestic · 목업 v2 · 2026-04-11</p>
+      <p style="margin-top:4px;">데이터는 6시간마다 자동 수집됩니다 · <a href="#">GitHub</a></p>
+    </div>
+  </div>
+
+  <div class="mockup-badge">MOCKUP v2</div>
+
+  <script>
+    // 국가 탭 클릭 이벤트
+    document.querySelectorAll('.country-tab').forEach(tab => {
+      tab.addEventListener('click', function() {
+        document.querySelectorAll('.country-tab').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+      });
+    });
+
+    // 일수 버튼 클릭 이벤트 (단일 선택)
+    document.querySelectorAll('.days-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('.days-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+      });
+    });
+
+    // 요약 카드 클릭 이벤트
+    document.querySelectorAll('.summary-card').forEach(card => {
+      card.addEventListener('click', function() {
+        document.querySelectorAll('.summary-card').forEach(c => c.classList.remove('selected'));
+        this.classList.add('selected');
+      });
+    });
+  </script>
+</body>
+</html>

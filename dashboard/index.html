@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Domestic eSIM Price Dashboard</title>
+  <title>국내 판매 해외 eSIM 가격 비교</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
@@ -11,218 +11,211 @@
 </head>
 <body>
   <div class="page-shell">
+
+    <!-- Hero -->
     <header class="hero">
-      <div class="hero-copy">
-        <p class="eyebrow">GitHub Pages Static Dashboard</p>
-        <h1>
-          <span class="hero-title-line">국내 판매 해외 eSIM</span>
-          <span class="hero-title-line">가격 비교</span>
-        </h1>
-        <p class="hero-description">필터를 선택한 뒤 국가별 가격 분포 밴드와 local / roaming 가격 차이를 비교하고, 하단 상세표로 원본 옵션을 확인합니다.</p>
-        <div class="hero-toolbar">
-          <div class="snapshot-picker">
-            <div class="snapshot-multi-field">
-              <div class="snapshot-field-head">
-                <span>비교 시점 선택</span>
-                <p id="snapshot-selection-help" class="snapshot-help">드롭다운에서 비교할 시점을 최대 2개까지 체크할 수 있습니다.</p>
-              </div>
-              <div class="snapshot-dropdown">
-                <button
-                  id="snapshot-dropdown-button"
-                  class="snapshot-dropdown-button"
-                  type="button"
-                  aria-expanded="false"
-                  aria-controls="snapshot-dropdown-panel"
-                >
-                  <span id="snapshot-dropdown-label">시점을 선택하세요</span>
-                  <span class="snapshot-dropdown-icon" aria-hidden="true">▾</span>
-                </button>
-                <div
-                  id="snapshot-dropdown-panel"
-                  class="snapshot-dropdown-panel"
-                  role="group"
-                  aria-label="비교 시점 선택"
-                  hidden
-                >
-                  <div id="snapshot-checklist" class="snapshot-checklist"></div>
-                </div>
-              </div>
+      <div class="hero-top">
+        <div>
+          <span class="hero-eyebrow">eSIM Price Dashboard</span>
+          <h1>국내 판매 해외 eSIM 가격 비교</h1>
+          <div class="hero-meta">
+            <span><span class="dot dot-green"></span> 수집: <strong id="last-collected">-</strong></span>
+            <span><strong id="kpi-total">-</strong>개 옵션</span>
+            <span><strong id="kpi-countries">-</strong>개국 / <strong id="kpi-sites">-</strong>개 사이트</span>
+          </div>
+        </div>
+        <div class="snapshot-bar">
+          <div class="snapshot-dropdown">
+            <button
+              id="snapshot-dropdown-button"
+              class="snapshot-dropdown-button"
+              type="button"
+              aria-expanded="false"
+              aria-controls="snapshot-dropdown-panel"
+            >
+              <span id="snapshot-dropdown-label">시점 선택</span>
+              <span class="snapshot-dropdown-icon" aria-hidden="true">&#9662;</span>
+            </button>
+            <div
+              id="snapshot-dropdown-panel"
+              class="snapshot-dropdown-panel"
+              role="group"
+              aria-label="비교 시점 선택"
+              hidden
+            >
+              <p id="snapshot-selection-help" class="snapshot-help">최대 2개까지 체크 가능</p>
+              <div id="snapshot-checklist" class="snapshot-checklist"></div>
             </div>
           </div>
+          <span class="vs-badge">비교</span>
           <p id="snapshot-meta" class="snapshot-meta">최신 스냅샷을 불러오는 중입니다.</p>
-        </div>
-      </div>
-      <div class="hero-meta">
-        <button id="help-button" class="ghost-button help-button" type="button">도움말</button>
-        <div class="meta-chip">
-          <span class="meta-label">Selected Snapshot</span>
-          <strong id="last-collected">-</strong>
-        </div>
-        <div class="meta-chip">
-          <span class="meta-label">Run ID</span>
-          <strong id="run-id" class="mono">-</strong>
+          <button id="help-button" class="ghost-button" type="button" style="margin-left:auto;font-size:12px;padding:5px 12px;">도움말</button>
         </div>
       </div>
     </header>
 
-    <main class="content-grid">
-      <section class="panel panel-full filters-panel">
-        <div class="panel-header">
-          <div>
-            <p class="section-kicker">Filters</p>
-            <h2>비교 조건 선택</h2>
-          </div>
-          <button id="reset-filters" class="ghost-button" type="button">Reset</button>
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+      <div class="filter-row">
+        <span class="filter-label">국가</span>
+        <div class="country-tabs" id="country-tabs"></div>
+        <div class="filter-divider"></div>
+        <span class="filter-label">사이트</span>
+        <div class="site-checkboxes" id="site-checkboxes"></div>
+      </div>
+      <div class="filter-row">
+        <span class="filter-label">일수</span>
+        <div class="days-group" id="days-group"></div>
+        <div class="filter-divider"></div>
+        <span class="filter-label">네트워크</span>
+        <select id="network-filter" class="filter-select"></select>
+        <div class="filter-divider"></div>
+        <span class="filter-label">용량</span>
+        <select id="quota-filter" class="filter-select"></select>
+        <div class="filter-divider"></div>
+        <span class="filter-label">정렬</span>
+        <select id="sort-filter" class="filter-select">
+          <option value="price">최저가 낮은순</option>
+          <option value="days">사용일수 낮은순</option>
+          <option value="unit_price">가성비순 (₩/GB/일)</option>
+          <option value="site">사이트명 순</option>
+        </select>
+        <div style="margin-left:auto;">
+          <button id="reset-filters" class="ghost-button" type="button" style="font-size:12px;padding:5px 12px;">초기화</button>
         </div>
-        <div class="filters">
-          <label class="filter-field"><span>사이트</span><select id="site-filter"></select></label>
-          <label class="filter-field"><span>국가</span><select id="country-filter"></select></label>
-          <label class="filter-field"><span>사용일수</span><select id="days-filter"></select></label>
-          <label class="filter-field"><span>데이터</span><select id="quota-filter"></select></label>
-          <label class="filter-field"><span>망 유형</span><select id="network-filter"></select></label>
-          <label class="filter-field">
-            <span>정렬</span>
-            <select id="sort-filter">
-              <option value="price">최저가 낮은순</option>
-              <option value="days">사용일수 낮은순</option>
-              <option value="site">사이트명 순</option>
-            </select>
-          </label>
+      </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="summary-grid" id="summary-grid"></div>
+
+    <!-- Heatmap -->
+    <div class="heatmap-panel">
+      <div class="section-header">
+        <div class="section-title">&#128202; 국가 x 사용일수 최저가 히트맵</div>
+        <span class="section-tag">색상이 연할수록 저렴</span>
+      </div>
+      <table class="heatmap-table">
+        <thead>
+          <tr id="heatmap-head-row"></tr>
+        </thead>
+        <tbody id="heatmap-body"></tbody>
+      </table>
+      <div class="heatmap-legend">
+        <span>저렴</span>
+        <div class="legend-bar">
+          <span class="lb-1"></span>
+          <span class="lb-2"></span>
+          <span class="lb-3"></span>
+          <span class="lb-4"></span>
+          <span class="lb-5"></span>
         </div>
-      </section>
+        <span>비쌈</span>
+      </div>
+    </div>
 
-      <section class="panel panel-full summary-strip">
-        <article class="summary-stat">
-          <span class="kpi-label">표시 행 수</span>
-          <strong id="kpi-rows">-</strong>
-        </article>
-        <article class="summary-stat">
-          <span class="kpi-label">최저가</span>
-          <strong id="kpi-lowest">-</strong>
-        </article>
-        <article class="summary-stat">
-          <span class="kpi-label">사이트 수</span>
-          <strong id="kpi-sites">-</strong>
-        </article>
-        <article class="summary-stat">
-          <span class="kpi-label">국가 수</span>
-          <strong id="kpi-countries">-</strong>
-        </article>
-      </section>
+    <!-- Two Column: Vendor Ranking + Premium -->
+    <div class="two-col">
+      <div class="panel">
+        <div class="section-header">
+          <div class="section-title">&#127942; 벤더 경쟁 순위</div>
+          <span class="section-tag">전체 최저가 기준</span>
+        </div>
+        <ul class="rank-list" id="rank-list"></ul>
+      </div>
+      <div class="panel">
+        <div class="section-header">
+          <div class="section-title">&#128225; Local vs Roaming 가격 차이</div>
+          <span class="section-tag">국가별 평균</span>
+        </div>
+        <div id="premium-list"></div>
+        <div id="premium-insight" class="premium-insight"></div>
+      </div>
+    </div>
 
-      <section class="panel distribution-panel">
-        <button
-          id="distribution-toggle"
-          class="panel-toggle"
-          type="button"
-          aria-expanded="false"
-          aria-controls="distribution-body"
-        >
-          <div class="panel-header">
-            <div>
-              <p class="section-kicker">Price Distribution</p>
-              <h2>국가별 가격 분포 밴드</h2>
-              <p class="panel-toggle-hint">클릭하여 가격 분포 밴드 펼치기</p>
+    <!-- Value Table (Top 10) -->
+    <div class="value-table-panel">
+      <div class="value-table-header">
+        <div class="section-title">&#128142; 가성비 Top 10 &#8212; &#8361;/GB/일 기준</div>
+        <span class="section-tag">단가가 낮을수록 가성비 우수</span>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width:48px;">#</th>
+            <th>국가</th>
+            <th>사이트</th>
+            <th>일수</th>
+            <th>용량</th>
+            <th>네트워크</th>
+            <th style="text-align:right;">가격</th>
+            <th style="text-align:right;">단가 (&#8361;/GB/일)</th>
+          </tr>
+        </thead>
+        <tbody id="value-table-body"></tbody>
+      </table>
+    </div>
+
+    <!-- Snapshot Diff -->
+    <div class="diff-panel">
+      <div class="section-header">
+        <div class="section-title">&#128260; 시점별 변경 상품</div>
+        <p id="snapshot-diff-meta" class="section-tag">시점 2개를 선택하면 가격 또는 노출 여부가 달라진 상품만 표시합니다.</p>
+      </div>
+      <div id="snapshot-diff-list" class="snapshot-diff-list"></div>
+    </div>
+
+    <!-- Detail Table (Collapsible) -->
+    <div class="detail-section">
+      <button id="detail-toggle" class="detail-toggle" type="button">
+        <span>전체 상세 데이터</span>
+        <span class="arrow">&#9660;</span>
+      </button>
+      <div id="detail-body" class="detail-body">
+        <div class="detail-inner">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <div class="detail-stats">
+              <span>필터 결과: <strong id="detail-count">-</strong>행</span>
+              <span>정렬: <strong id="detail-sort-label">-</strong></span>
             </div>
-            <div class="panel-toggle-side">
-              <p class="panel-note">일수별 최저가 흐름과 최저가 구간을 밴드 길이로 비교합니다.</p>
-              <span class="panel-toggle-badge">접힘 상태</span>
-              <span class="panel-toggle-icon" aria-hidden="true">▾</span>
-            </div>
+            <button id="download-csv" class="ghost-button" type="button" style="font-size:12px;padding:5px 12px;">Excel 다운로드</button>
           </div>
-        </button>
-        <div id="distribution-body" class="panel-body" hidden>
-          <div class="section-controls">
-            <label class="filter-field compact-field"><span>표시 국가</span><select id="price-band-country-filter"></select></label>
-            <label class="filter-field compact-field"><span>표시 개수</span><select id="price-band-limit-filter"></select></label>
-            <button id="distribution-clear" class="ghost-button section-clear-button" type="button" disabled>드릴다운 해제</button>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>국가</th>
+                  <th>사이트</th>
+                  <th>일수</th>
+                  <th>용량</th>
+                  <th>네트워크</th>
+                  <th>최저가</th>
+                  <th>옵션 수</th>
+                  <th>대표 옵션</th>
+                  <th>원본</th>
+                </tr>
+              </thead>
+              <tbody id="comparison-body"></tbody>
+            </table>
           </div>
-          <div id="price-band-list" class="price-band-list"></div>
+          <div class="table-pagination">
+            <button id="page-first" class="ghost-button page-nav-button" type="button">처음</button>
+            <button id="page-prev" class="ghost-button" type="button">이전</button>
+            <div id="page-numbers" class="page-numbers"></div>
+            <button id="page-next" class="ghost-button" type="button">다음</button>
+            <button id="page-last" class="ghost-button page-nav-button" type="button">마지막</button>
+          </div>
         </div>
-      </section>
+      </div>
+    </div>
 
-      <section class="panel premium-panel">
-        <button
-          id="premium-toggle"
-          class="panel-toggle"
-          type="button"
-          aria-expanded="false"
-          aria-controls="premium-body"
-        >
-          <div class="panel-header">
-            <div>
-              <p class="section-kicker">Local vs Roaming</p>
-              <h2>망 유형 가격 차이</h2>
-              <p class="panel-toggle-hint">클릭하여 local / roaming 비교 펼치기</p>
-            </div>
-            <div class="panel-toggle-side">
-              <p class="panel-note">같은 사이트의 local / roaming 가격 차이와 비율 차이를 보여줍니다.</p>
-              <span class="panel-toggle-badge">접힘 상태</span>
-              <span class="panel-toggle-icon" aria-hidden="true">▾</span>
-            </div>
-          </div>
-        </button>
-        <div id="premium-body" class="panel-body" hidden>
-          <div class="section-controls">
-            <label class="filter-field compact-field"><span>표시 사이트</span><select id="premium-site-filter"></select></label>
-            <label class="filter-field compact-field"><span>표시 개수</span><select id="premium-limit-filter"></select></label>
-            <button id="premium-clear" class="ghost-button section-clear-button" type="button" disabled>드릴다운 해제</button>
-          </div>
-          <div id="premium-list" class="premium-list"></div>
-        </div>
-      </section>
-
-      <section class="panel panel-full snapshot-diff-panel">
-        <div class="panel-header">
-          <div>
-            <p class="section-kicker">Snapshot Diff</p>
-            <h2>시점별 변경 상품</h2>
-          </div>
-          <p id="snapshot-diff-meta" class="panel-note">시점 2개를 선택하면 가격 또는 노출 여부가 달라진 상품만 표시합니다.</p>
-        </div>
-        <div id="snapshot-diff-list" class="snapshot-diff-list"></div>
-      </section>
-
-      <section class="panel panel-full table-panel">
-        <div class="panel-header">
-          <div>
-            <p class="section-kicker">Drill-down</p>
-            <h2>상세 비교표</h2>
-          </div>
-          <div class="panel-actions">
-            <button id="download-csv" class="ghost-button" type="button">Excel 다운로드</button>
-            <p id="table-meta" class="panel-note">-</p>
-          </div>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>국가</th>
-                <th>사이트</th>
-                <th>일수</th>
-                <th>데이터</th>
-                <th>망</th>
-                <th>최저가</th>
-                <th>옵션 수</th>
-                <th>대표 옵션</th>
-                <th>원본</th>
-              </tr>
-            </thead>
-            <tbody id="comparison-body"></tbody>
-          </table>
-        </div>
-        <div class="table-pagination">
-          <button id="page-first" class="ghost-button page-nav-button" type="button">처음</button>
-          <button id="page-prev" class="ghost-button" type="button">이전</button>
-          <div id="page-numbers" class="page-numbers"></div>
-          <button id="page-next" class="ghost-button" type="button">다음</button>
-          <button id="page-last" class="ghost-button page-nav-button" type="button">마지막</button>
-        </div>
-      </section>
-    </main>
+    <!-- Footer -->
+    <div class="footer">
+      <p>eSIM Price Collector Domestic</p>
+    </div>
   </div>
 
+  <!-- Help Modal -->
   <div id="help-modal" class="modal-shell" hidden>
     <div id="help-overlay" class="modal-overlay"></div>
     <section class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="help-title">
@@ -235,28 +228,36 @@
       </div>
       <div class="modal-body">
         <article class="help-block">
-          <h3>크롤링 시점 선택</h3>
-          <p>상단 드롭다운에서 시점을 최대 2개까지 체크할 수 있습니다. 먼저 선택한 시점이 기준이 되며, 두 시점을 고르면 아래 시점별 변경 상품 섹션에 차이만 따로 표시됩니다.</p>
+          <h3>필터 사용법</h3>
+          <p>국가 탭, 사이트 칩(다중 선택), 일수 버튼, 네트워크/용량 드롭다운으로 조건을 좁힙니다. 모든 섹션에 공통 적용됩니다.</p>
         </article>
         <article class="help-block">
-          <h3>Filters</h3>
-          <p>사이트, 국가, 사용일수, 데이터, 망 유형, 정렬 기준으로 전체 비교 조건을 좁힙니다. 아래 모든 섹션에 공통 적용됩니다.</p>
+          <h3>국가별 요약 카드</h3>
+          <p>4개국의 최저가, 옵션 수, 최저가 사이트를 한눈에 비교합니다. 카드를 클릭하면 해당 국가로 필터가 설정됩니다.</p>
         </article>
         <article class="help-block">
-          <h3>Price Distribution</h3>
-          <p>국가별 일수 구간의 최저가 흐름을 비교합니다. 표시 국가와 표시 개수를 줄여 원하는 밴드만 볼 수 있고, 카드를 누르면 상세표 필터가 연결됩니다. 섹션 안의 드릴다운 해제 버튼으로 바로 원복할 수 있습니다.</p>
+          <h3>히트맵</h3>
+          <p>국가별 일수 구간의 최저가를 색상으로 비교합니다. 셀을 클릭하면 해당 조건으로 상세표 필터가 연결됩니다.</p>
+        </article>
+        <article class="help-block">
+          <h3>벤더 경쟁 순위</h3>
+          <p>전체 최저가 기준으로 사이트별 순위를 매깁니다. 각 사이트의 가격 경쟁력을 바 차트로 확인할 수 있습니다.</p>
         </article>
         <article class="help-block">
           <h3>Local vs Roaming</h3>
-          <p>같은 사이트의 local / roaming 가격 차이를 비교합니다. 사이트와 표시 개수를 조절해 필요한 카드만 집중해서 볼 수 있고, 카드 클릭 후에도 섹션 안에서 바로 드릴다운 해제가 가능합니다.</p>
+          <p>국가별로 local과 roaming 네트워크의 평균 가격 차이를 비교합니다.</p>
         </article>
         <article class="help-block">
-          <h3>Snapshot Diff</h3>
-          <p>선택한 2개 시점 사이에서 가격이 달라졌거나 한쪽 시점에만 존재하는 상품만 따로 모아 보여줍니다. 현재 필터 조건이 그대로 적용됩니다.</p>
+          <h3>가성비 Top 10</h3>
+          <p>&#8361;/GB/일 단가가 가장 낮은(가성비가 좋은) 상위 10개 옵션을 보여줍니다. 용량이 클수록, 일수가 길수록 단가가 낮아지는 경향이 있습니다.</p>
         </article>
         <article class="help-block">
-          <h3>Drill-down</h3>
-          <p>현재 선택한 조건의 비교 행을 표로 보여줍니다. 시점 비교 정보는 별도 섹션에서 확인하고, 상세표와 Excel 다운로드는 현재 기준 시점 데이터 자체에 집중합니다.</p>
+          <h3>시점 비교</h3>
+          <p>상단 시점 선택기에서 시점을 2개 선택하면, 가격이 달라졌거나 한쪽에만 존재하는 상품을 변경 상품 섹션에서 확인할 수 있습니다.</p>
+        </article>
+        <article class="help-block">
+          <h3>상세 데이터</h3>
+          <p>하단 '전체 상세 데이터'를 클릭하면 필터링된 전체 비교 행을 표로 확인할 수 있으며, Excel 다운로드도 가능합니다.</p>
         </article>
       </div>
     </section>
