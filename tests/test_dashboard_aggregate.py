@@ -6,6 +6,7 @@ from pathlib import Path
 from app.models import NormalizedPriceRecord, RunMetadata
 from app.output.dashboard_data import (
     build_dashboard_payload,
+    resolve_effective_collected_at,
     write_dashboard_latest,
     write_dashboard_publish_bundle,
 )
@@ -118,6 +119,7 @@ def test_build_dashboard_payload_computes_summary_and_comparison_rows() -> None:
 
     payload = build_dashboard_payload(records, metadata)
 
+    assert payload["summary"]["last_collected_at"] == "2026-03-16T03:00:00+00:00"
     assert payload["summary"]["record_count"] == 5
     assert payload["summary"]["country_count"] == 2
     assert payload["summary"]["site_count"] == 2
@@ -229,11 +231,14 @@ def test_write_dashboard_publish_bundle_creates_index_and_snapshot_file(tmp_path
     snapshot_payload = json.loads(snapshot_path.read_text(encoding="utf-8"))
 
     assert payload["summary"]["run_id"] == "run-publish"
+    assert payload["summary"]["last_collected_at"] == "2026-03-16T00:00:00+00:00"
     assert latest_path.exists()
     assert index_path.exists()
     assert snapshot_path.exists()
     assert index_payload["latest_run_id"] == "run-publish"
+    assert index_payload["generated_at"] == "2026-03-16T00:00:00+00:00"
     assert index_payload["snapshots"][0]["relative_path"] == "snapshots/run-publish.json"
+    assert index_payload["snapshots"][0]["collected_at"] == "2026-03-16T00:00:00+00:00"
     assert index_payload["snapshots"][0]["history_date"] == "2026-03-16"
     assert snapshot_payload["summary"]["run_id"] == "run-publish"
 
@@ -264,3 +269,40 @@ def test_dashboard_payload_exposes_empty_premium_rows_when_no_local_roaming_pair
 
     assert payload["network_premium_summary"] == []
     assert payload["summary"]["network_premium_case_count"] == 0
+
+
+def test_resolve_effective_collected_at_prefers_latest_record_timestamp() -> None:
+    records = [
+        _record(
+            site="usimsa",
+            site_label="유심사",
+            country_code="JP",
+            country_name_ko="일본",
+            option_name="일본 1일 unlimited",
+            days=1,
+            data_quota_label="unlimited",
+            network_type="roaming",
+            price_krw=4000,
+            collected_at="2026-03-16T00:00:00+00:00",
+        ),
+        _record(
+            site="pindirect",
+            site_label="핀다이렉트",
+            country_code="US",
+            country_name_ko="미국",
+            option_name="미국 3일 1GB",
+            days=3,
+            data_quota_label="1GB",
+            network_type="local",
+            price_krw=9000,
+            collected_at="2026-03-16T05:30:00+00:00",
+        ),
+    ]
+    metadata = RunMetadata(
+        run_id="run-effective",
+        collected_at="2026-03-16T06:00:00+00:00",
+        success_count=2,
+        failure_count=0,
+    )
+
+    assert resolve_effective_collected_at(records, metadata) == "2026-03-16T05:30:00+00:00"

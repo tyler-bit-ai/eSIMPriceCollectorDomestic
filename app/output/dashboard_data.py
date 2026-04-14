@@ -12,6 +12,29 @@ from app.models import NormalizedPriceRecord, RunMetadata
 DEFAULT_DASHBOARD_DATA_DIR = Path("dashboard/data")
 
 
+def resolve_effective_collected_at(
+    records: list[NormalizedPriceRecord],
+    metadata: RunMetadata,
+) -> str:
+    latest_record_timestamp = _latest_record_timestamp(records)
+    if latest_record_timestamp is not None:
+        return latest_record_timestamp
+    return metadata.collected_at
+
+
+def _latest_record_timestamp(records: list[NormalizedPriceRecord]) -> str | None:
+    latest_at: tuple[datetime, str] | None = None
+    for record in records:
+        collected_at = record.collected_at
+        try:
+            parsed = datetime.fromisoformat(collected_at)
+        except ValueError:
+            continue
+        if latest_at is None or parsed > latest_at[0]:
+            latest_at = (parsed, collected_at)
+    return latest_at[1] if latest_at is not None else None
+
+
 def _safe_min_price(rows: list[dict]) -> int | None:
     prices = [item["lowest_price_krw"] for item in rows if item["lowest_price_krw"] is not None]
     return min(prices) if prices else None
@@ -21,6 +44,7 @@ def build_dashboard_payload(
     records: list[NormalizedPriceRecord],
     metadata: RunMetadata,
 ) -> dict:
+    effective_collected_at = resolve_effective_collected_at(records, metadata)
     record_dicts = [asdict(record) for record in records]
     available_records = [
         record for record in record_dicts if record["availability_status"] == "available"
@@ -335,7 +359,7 @@ def build_dashboard_payload(
     prices = [record["price_krw"] for record in available_records if record["price_krw"] is not None]
     summary = {
         "run_id": metadata.run_id,
-        "last_collected_at": metadata.collected_at,
+        "last_collected_at": effective_collected_at,
         "record_count": len(record_dicts),
         "available_record_count": len(available_records),
         "country_count": len(country_summary),
@@ -380,6 +404,7 @@ def write_dashboard_publish_bundle(
     metadata: RunMetadata,
     data_dir: Path = DEFAULT_DASHBOARD_DATA_DIR,
 ) -> dict:
+    effective_collected_at = resolve_effective_collected_at(records, metadata)
     payload = write_dashboard_latest(
         records,
         metadata,
@@ -394,7 +419,11 @@ def write_dashboard_publish_bundle(
         encoding="utf-8",
     )
 
-    snapshot_entry = _build_snapshot_entry(metadata, snapshot_path.relative_to(data_dir))
+    snapshot_entry = _build_snapshot_entry(
+        metadata,
+        snapshot_path.relative_to(data_dir),
+        effective_collected_at,
+    )
     index_path = data_dir / "index.json"
     index_payload = _load_dashboard_index(index_path)
     snapshots = [
@@ -413,7 +442,7 @@ def write_dashboard_publish_bundle(
 
     index_payload = {
         "latest_run_id": metadata.run_id,
-        "generated_at": metadata.collected_at,
+        "generated_at": effective_collected_at,
         "snapshots": snapshots,
     }
     index_path.write_text(
@@ -432,8 +461,11 @@ def _load_dashboard_index(index_path: Path) -> dict:
         return {"latest_run_id": None, "generated_at": None, "snapshots": []}
 
 
-def _build_snapshot_entry(metadata: RunMetadata, relative_path: Path) -> dict:
-    collected_at = metadata.collected_at
+def _build_snapshot_entry(
+    metadata: RunMetadata,
+    relative_path: Path,
+    collected_at: str,
+) -> dict:
     label = metadata.run_id
     try:
         stamp = datetime.fromisoformat(collected_at).strftime("%Y-%m-%d %H:%M UTC")
@@ -449,7 +481,7 @@ def _build_snapshot_entry(metadata: RunMetadata, relative_path: Path) -> dict:
 
     return {
         "run_id": metadata.run_id,
-        "collected_at": metadata.collected_at,
+        "collected_at": collected_at,
         "label": label,
         "history_date": history_date,
         "relative_path": relative_path.as_posix(),

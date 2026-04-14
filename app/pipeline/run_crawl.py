@@ -9,7 +9,10 @@ from uuid import uuid4
 from app.adapters import ensure_adapter_module
 from app.adapters.base import get_adapter
 from app.models import NormalizedPriceRecord, OutputContract, RunMetadata
-from app.output.dashboard_data import write_dashboard_publish_bundle
+from app.output.dashboard_data import (
+    resolve_effective_collected_at,
+    write_dashboard_publish_bundle,
+)
 from app.output.paths import build_output_contract
 from app.output.writer import append_failures, ensure_output_dirs, write_records, write_run_metadata
 from app.pipeline.normalize import normalize_option, validate_record
@@ -82,6 +85,7 @@ def run_crawl(
 
     metadata.success_count = len(records)
     metadata.failure_count = len(failures)
+    metadata.collected_at = resolve_effective_collected_at(records, metadata)
 
     write_records(contract, records)
     write_run_metadata(contract, metadata)
