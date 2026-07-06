@@ -11,6 +11,7 @@ from app.models import SourceTarget
 
 
 NEXT_DATA_RE = re.compile(r'<script id="__NEXT_DATA__" type="application/json">(.+?)</script>')
+PRODUCT_ID_URL_RE = re.compile(r'/select-option/([0-9A-Fa-f-]+)/?$')
 
 
 def parse_product_id_from_html(html: str) -> str:
@@ -22,6 +23,13 @@ def parse_product_id_from_html(html: str) -> str:
     if not product_id:
         raise ValueError("Could not locate productId in __NEXT_DATA__ payload")
     return str(product_id)
+
+
+def parse_product_id_from_url(source_url: str) -> str:
+    match = PRODUCT_ID_URL_RE.search(source_url)
+    if match is None:
+        raise ValueError(f"Could not parse product id from url: {source_url}")
+    return match.group(1)
 
 
 def parse_product_payload(payload: dict, target: SourceTarget, fetch_mode: str) -> list[RawOptionRecord]:
@@ -64,8 +72,7 @@ class PindirectAdapter(SiteAdapter):
     api_base_url = "https://z-api.pindirectshop.com"
 
     def fetch(self, target: SourceTarget) -> list[RawOptionRecord]:
-        html = self.fetch_html(target.source_url)
-        product_id = parse_product_id_from_html(html)
+        product_id = parse_product_id_from_url(target.source_url)
 
         try:
             payload = self.fetch_product_payload(product_id)
