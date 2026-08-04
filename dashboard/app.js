@@ -5,7 +5,7 @@ const state = {
   primarySnapshotRunId: null,
   selectedSnapshotRunIds: [],
   snapshotPayloadCache: new Map(),
-  detailOpen: false,
+  detailOpen: true,
   pagination: {
     currentPage: 1,
     pageSize: 20,
