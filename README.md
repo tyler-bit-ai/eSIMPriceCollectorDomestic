@@ -16,8 +16,8 @@
 - 대상 국가: 일본(`JP`), 베트남(`VN`), 미국(`US`), 필리핀(`PH`)
 - 기본 통화: `KRW`
 - 배포 형태: GitHub Pages 정적 대시보드
-- 체크인된 최신 publish 스냅샷: `run-20260706T004456Z-87d3d15f`
-- 체크인된 최신 실행 메타데이터: `success_count=2942`, `failure_count=0`
+- 체크인된 최신 publish 스냅샷: `run-20260804T050249Z-5d6ad2a6`
+- 체크인된 최신 실행 메타데이터: `success_count=2931`, `failure_count=0`
 
 ## 주요 기능
 
@@ -171,7 +171,7 @@ python -m http.server 8000
 
 참고:
 
-- 현재 저장소에 포함된 publish 데이터 기준 최신 스냅샷은 `2026-07-06 00:46 UTC` 수집본입니다.
+- 현재 저장소에 포함된 publish 데이터 기준 최신 스냅샷은 `2026-08-04 05:02 UTC` 수집본입니다.
 - 시점 비교 드롭다운은 `dashboard/data/index.json`에 포함된 스냅샷 목록을 사용합니다.
 
 ## 테스트
