@@ -5,6 +5,10 @@ const state = {
   primarySnapshotRunId: null,
   selectedSnapshotRunIds: [],
   snapshotPayloadCache: new Map(),
+  history: [], // 수집 시점 오름차순 [{ snap, payload }] — 추이 차트/직전 대비 변동률용
+  trendCountry: null,
+  hiddenSites: new Set(),
+  siteLabels: new Map(),
   detailOpen: true,
   pagination: {
     currentPage: 1,
@@ -20,52 +24,69 @@ const state = {
   },
 };
 
-const COUNTRY_FLAGS = { JP: "\u{1F1EF}\u{1F1F5}", PH: "\u{1F1F5}\u{1F1ED}", US: "\u{1F1FA}\u{1F1F8}", VN: "\u{1F1FB}\u{1F1F3}" };
 const HEATMAP_DAYS = [1, 3, 5, 7, 10, 15, 30];
 const QUICK_DAYS = [1, 3, 5, 7, 10, 15, 30];
+const TREND_DAYS = 7;
+const SITE_STYLE = {
+  rokebi: { c: "#2563EB", d: "" },
+  maaltalk: { c: "#EA580C", d: "7 4" },
+  usimsa: { c: "#0F766E", d: "2 3" },
+  pindirect: { c: "#7C3AED", d: "10 3 2 3" },
+};
+const FALLBACK_SITE_STYLE = { c: "#64748B", d: "4 4" };
 
+const $ = (id) => document.getElementById(id);
 const elements = {
-  lastCollected: document.getElementById("last-collected"),
-  kpiTotal: document.getElementById("kpi-total"),
-  kpiCountries: document.getElementById("kpi-countries"),
-  kpiSites: document.getElementById("kpi-sites"),
-  snapshotDropdownButton: document.getElementById("snapshot-dropdown-button"),
-  snapshotDropdownLabel: document.getElementById("snapshot-dropdown-label"),
-  snapshotDropdownPanel: document.getElementById("snapshot-dropdown-panel"),
-  snapshotChecklist: document.getElementById("snapshot-checklist"),
-  snapshotSelectionHelp: document.getElementById("snapshot-selection-help"),
-  snapshotMeta: document.getElementById("snapshot-meta"),
-  helpButton: document.getElementById("help-button"),
-  helpModal: document.getElementById("help-modal"),
-  helpOverlay: document.getElementById("help-overlay"),
-  helpClose: document.getElementById("help-close"),
-  countryTabs: document.getElementById("country-tabs"),
-  siteCheckboxes: document.getElementById("site-checkboxes"),
-  daysGroup: document.getElementById("days-group"),
-  networkFilter: document.getElementById("network-filter"),
-  quotaFilter: document.getElementById("quota-filter"),
-  sortFilter: document.getElementById("sort-filter"),
-  resetFilters: document.getElementById("reset-filters"),
-  summaryGrid: document.getElementById("summary-grid"),
-  heatmapHeadRow: document.getElementById("heatmap-head-row"),
-  heatmapBody: document.getElementById("heatmap-body"),
-  rankList: document.getElementById("rank-list"),
-  premiumList: document.getElementById("premium-list"),
-  premiumInsight: document.getElementById("premium-insight"),
-  valueTableBody: document.getElementById("value-table-body"),
-  snapshotDiffMeta: document.getElementById("snapshot-diff-meta"),
-  snapshotDiffList: document.getElementById("snapshot-diff-list"),
-  detailToggle: document.getElementById("detail-toggle"),
-  detailBody: document.getElementById("detail-body"),
-  detailCount: document.getElementById("detail-count"),
-  detailSortLabel: document.getElementById("detail-sort-label"),
-  downloadCsv: document.getElementById("download-csv"),
-  comparisonBody: document.getElementById("comparison-body"),
-  pageFirst: document.getElementById("page-first"),
-  pagePrev: document.getElementById("page-prev"),
-  pageNext: document.getElementById("page-next"),
-  pageLast: document.getElementById("page-last"),
-  pageNumbers: document.getElementById("page-numbers"),
+  lastCollected: $("last-collected"),
+  kpiTotal: $("kpi-total"),
+  kpiCountries: $("kpi-countries"),
+  kpiSites: $("kpi-sites"),
+  snapshotDropdownButton: $("snapshot-dropdown-button"),
+  snapshotDropdownLabel: $("snapshot-dropdown-label"),
+  snapshotDropdownPanel: $("snapshot-dropdown-panel"),
+  snapshotChecklist: $("snapshot-checklist"),
+  snapshotSelectionHelp: $("snapshot-selection-help"),
+  helpButton: $("help-button"),
+  helpModal: $("help-modal"),
+  helpOverlay: $("help-overlay"),
+  helpClose: $("help-close"),
+  side: $("side"),
+  mobileFilter: $("mfilter"),
+  mobileCount: $("mcount"),
+  fCountry: $("f-country"),
+  fSite: $("f-site"),
+  fDays: $("f-days"),
+  fNet: $("f-net"),
+  quotaFilter: $("quota-filter"),
+  sortFilter: $("sort-filter"),
+  resetFilters: $("reset-filters"),
+  active: $("active"),
+  best: $("best"),
+  ccards: $("ccards"),
+  tCountry: $("t-country"),
+  legend: $("legend"),
+  trend: $("trend"),
+  trendInsight: $("trend-insight"),
+  vend: $("vend"),
+  heatmapHeadRow: $("heatmap-head-row"),
+  heatmapBody: $("heatmap-body"),
+  prem: $("prem"),
+  premInsight: $("prem-insight"),
+  snapshotDiffMeta: $("snapshot-diff-meta"),
+  snapshotDiffList: $("snapshot-diff-list"),
+  diffPill: $("diff-pill"),
+  valueTableBody: $("value-table-body"),
+  detailToggle: $("detail-toggle"),
+  detailBody: $("detail-body"),
+  detailCount: $("detail-count"),
+  detailSortLabel: $("detail-sort-label"),
+  downloadCsv: $("download-csv"),
+  comparisonBody: $("comparison-body"),
+  pageFirst: $("page-first"),
+  pagePrev: $("page-prev"),
+  pageNext: $("page-next"),
+  pageLast: $("page-last"),
+  pageNumbers: $("page-numbers"),
 };
 
 const fmt = new Intl.NumberFormat("ko-KR");
@@ -85,6 +106,7 @@ async function loadDashboard() {
       selectedRunIds: [latestSnapshot.run_id],
       resetFilters: true,
     });
+    loadHistory(); // 첫 화면 이후 백그라운드 로드
     return;
   }
 
@@ -135,6 +157,18 @@ async function ensureSnapshotPayload(snapshot) {
   }
 }
 
+// 전체 스냅샷을 병렬 로드해 추이 차트와 직전 수집 대비 변동률에 사용한다. 실패한 스냅샷은 건너뛴다.
+async function loadHistory() {
+  const snapshots = state.snapshotIndex?.snapshots ?? [];
+  const settled = await Promise.allSettled(snapshots.map((snap) => ensureSnapshotPayload(snap)));
+  state.history = snapshots
+    .map((snap, i) => ({ snap, payload: settled[i].status === "fulfilled" ? settled[i].value : null }))
+    .filter((item) => item.payload)
+    .sort((a, b) => new Date(a.snap.collected_at) - new Date(b.snap.collected_at));
+  renderHero(getFilteredRows());
+  renderTrend();
+}
+
 function getSnapshotByRunId(runId) {
   return state.snapshotIndex?.snapshots?.find((item) => item.run_id === runId) ?? null;
 }
@@ -156,7 +190,7 @@ async function updateSnapshotSelection({ primaryRunId, selectedRunIds, resetFilt
   const normalizedSelectedRunIds = normalizeSelectedSnapshotRunIds(selectedRunIds, primaryRunId);
   const selectedSnapshots = normalizedSelectedRunIds.map((runId) => getSnapshotByRunId(runId)).filter(Boolean);
 
-  elements.snapshotMeta.textContent = "선택한 스냅샷을 불러오는 중입니다.";
+  elements.snapshotSelectionHelp.textContent = "선택한 스냅샷을 불러오는 중입니다.";
   await Promise.all(selectedSnapshots.map((snapshot) => ensureSnapshotPayload(snapshot)));
   const primaryPayload = await ensureSnapshotPayload(primarySnapshot);
 
@@ -168,98 +202,84 @@ async function updateSnapshotSelection({ primaryRunId, selectedRunIds, resetFilt
 
 function applyPayload(payload, { resetFilters }) {
   state.payload = payload;
+  state.siteLabels = new Map(rowsOf(payload).map((r) => [r.site, r.site_label]));
   if (resetFilters) resetFiltersAndViews();
   initializeFilters();
   renderSnapshotControls();
   render();
 }
 
+/* ═══ Data helpers ═════════════════════════ */
+
+const rowsOf = (payload = state.payload) => payload?.comparison_rows ?? [];
+const won = (n) => `₩${fmt.format(Math.round(n))}`;
+const ccBadge = (code) => `<span class="cc">${escapeHtml(code)}</span>`;
+const siteStyle = (site) => SITE_STYLE[site] ?? FALLBACK_SITE_STYLE;
+const siteDot = (site) => `<span class="dot" style="background:${siteStyle(site).c}"></span>`;
+const countries = () => state.payload?.filters?.countries ?? [];
+const countryName = (code) => countries().find(([c]) => c === code)?.[1] ?? code;
+const networkBadge = (type) => `<span class="net ${type === "local" ? "local" : "roaming"}">${escapeHtml(type || "-")}</span>`;
+
+// filters.sites와 filters.site_labels는 정렬 기준이 달라 인덱스로 짝지을 수 없다. 비교 행의 site_label을 쓴다.
+function siteLabel(site) {
+  return state.siteLabels.get(site) ?? site;
+}
+
+function minRow(rows) {
+  let best = null;
+  for (const r of rows) {
+    if (r.lowest_price_krw == null) continue;
+    if (!best || r.lowest_price_krw < best.lowest_price_krw) best = r;
+  }
+  return best;
+}
+
+function matches(row, { country = true, days = true } = {}) {
+  const f = state.filters;
+  if (country && f.country !== "all" && row.country_code !== f.country) return false;
+  if (f.sites.length > 0 && !f.sites.includes(row.site)) return false;
+  if (days && f.days !== "all" && String(row.days) !== f.days) return false;
+  if (f.quota !== "all" && row.data_quota_label !== f.quota) return false;
+  if (f.network !== "all" && row.network_type !== f.network) return false;
+  return true;
+}
+const matchesGlobalFilters = (row) => matches(row);
+
+// 직전(더 오래된) 수집 시점의 페이로드. 이력이 아직 로드되지 않았으면 null.
+function previousPayload() {
+  const i = state.history.findIndex((h) => h.snap.run_id === state.primarySnapshotRunId);
+  return i > 0 ? state.history[i - 1].payload : null;
+}
+
+// 현재 필터 기준 최저가의 직전 수집 대비 변동률(%). countryCode가 없으면 전체 필터 그대로 적용.
+function priceDeltaPct(countryCode) {
+  const prev = previousPayload();
+  if (!prev) return null;
+  const pick = (payload) => minRow(rowsOf(payload).filter((r) =>
+    countryCode ? matches(r, { country: false }) && r.country_code === countryCode : matches(r)));
+  const cur = pick(state.payload);
+  const old = pick(prev);
+  if (!cur || !old) return null;
+  return Math.round(((cur.lowest_price_krw - old.lowest_price_krw) / old.lowest_price_krw) * 100);
+}
+
+function deltaChip(pct) {
+  if (pct == null) return "";
+  if (pct === 0) return '<span class="delta flat">변동 없음</span>';
+  return `<span class="delta ${pct < 0 ? "down" : "up"}">${pct < 0 ? "▼" : "▲"} ${Math.abs(pct)}%</span>`;
+}
+
 /* ═══ Filter Initialization ═════════════════ */
 
 function initializeFilters() {
   const { filters } = state.payload;
-
-  // 국가 탭
-  elements.countryTabs.innerHTML = "";
-  const allTab = createCountryTab("all", "전체");
-  allTab.classList.add("active");
-  elements.countryTabs.appendChild(allTab);
-  for (const [code, name] of filters.countries) {
-    elements.countryTabs.appendChild(createCountryTab(code, `${COUNTRY_FLAGS[code] || ""} ${name}`));
+  if (state.filters.sites.length === 0) state.filters.sites = filters.sites.slice();
+  if (!state.trendCountry || !countries().some(([c]) => c === state.trendCountry)) {
+    state.trendCountry = countries()[0]?.[0] ?? null;
   }
-
-  // 사이트 칩
-  elements.siteCheckboxes.innerHTML = "";
-  if (state.filters.sites.length === 0) {
-    state.filters.sites = filters.sites.slice();
-  }
-  for (const site of filters.sites) {
-    const label = filters.site_labels[filters.sites.indexOf(site)] || site;
-    const chip = document.createElement("label");
-    chip.className = "site-chip" + (state.filters.sites.includes(site) ? " active" : "");
-    chip.dataset.site = site;
-    chip.innerHTML = `<span class="chip-check">\u2713</span> ${escapeHtml(label)}`;
-    chip.addEventListener("click", (e) => {
-      e.preventDefault();
-      chip.classList.toggle("active");
-      syncSiteFilter();
-      applyFilters({ sites: state.filters.sites.slice() });
-    });
-    elements.siteCheckboxes.appendChild(chip);
-  }
-
-  // 일수 버튼
-  elements.daysGroup.innerHTML = "";
-  const allBtn = createDaysButton("all", "전체");
-  if (state.filters.days === "all") allBtn.classList.add("active");
-  elements.daysGroup.appendChild(allBtn);
-  for (const d of QUICK_DAYS) {
-    const btn = createDaysButton(String(d), `${d}일`);
-    if (state.filters.days === String(d)) btn.classList.add("active");
-    elements.daysGroup.appendChild(btn);
-  }
-
-  // 네트워크
-  populateSelect(elements.networkFilter, [["all", "전체"], ...filters.network_types.map((t) => [t, t])]);
-  setSelectValue(elements.networkFilter, state.filters.network);
-
-  // 용량
   populateSelect(elements.quotaFilter, [["all", "전체"], ...filters.data_quota_labels.map((l) => [l, l])]);
   setSelectValue(elements.quotaFilter, state.filters.quota);
-
-  // 정렬
   setSelectValue(elements.sortFilter, state.filters.sort);
-}
-
-function createCountryTab(value, label) {
-  const btn = document.createElement("button");
-  btn.className = "country-tab";
-  btn.textContent = label;
-  btn.addEventListener("click", () => {
-    elements.countryTabs.querySelectorAll(".country-tab").forEach((t) => t.classList.remove("active"));
-    btn.classList.add("active");
-    applyFilters({ country: value });
-  });
-  return btn;
-}
-
-function createDaysButton(value, label) {
-  const btn = document.createElement("button");
-  btn.className = "days-btn";
-  btn.textContent = label;
-  btn.addEventListener("click", () => {
-    elements.daysGroup.querySelectorAll(".days-btn").forEach((b) => b.classList.remove("active"));
-    btn.classList.add("active");
-    applyFilters({ days: value });
-  });
-  return btn;
-}
-
-function syncSiteFilter() {
-  state.filters.sites = [];
-  elements.siteCheckboxes.querySelectorAll(".site-chip.active").forEach((chip) => {
-    state.filters.sites.push(chip.dataset.site);
-  });
 }
 
 function populateSelect(select, options) {
@@ -305,31 +325,91 @@ function renderSnapshotControls() {
 
   const selectedSnapshots = state.selectedSnapshotRunIds.map((runId) => getSnapshotByRunId(runId)).filter(Boolean);
   elements.snapshotDropdownLabel.textContent = selectedSnapshots.length
-    ? selectedSnapshots.map((s, i) => `${i === 0 ? "기준" : "비교"}: ${formatDate(s.collected_at)}`).join(" / ")
+    ? selectedSnapshots.map((s, i) => `${i === 0 ? "기준" : "비교"} ${formatDate(s.collected_at)}`).join(" · ")
     : "시점 선택";
 
   elements.snapshotSelectionHelp.textContent = selectionCount === 2
-    ? "2개 선택 완료"
+    ? "2개 선택 완료 · 첫 번째가 기준 시점입니다"
     : "최대 2개까지 체크 가능";
 }
 
 function buildSnapshotScope(snapshot) {
   const siteText = snapshot.selected_sites?.length ? snapshot.selected_sites.join(", ") : "전체 사이트";
   const countryText = snapshot.selected_countries?.length ? snapshot.selected_countries.join(", ") : "전체 국가";
-  return `${siteText} \u00B7 ${countryText}`;
+  return `${siteText} · ${countryText}`;
 }
 
 /* ═══ Event Binding ════════════════════════ */
 
 function bindEvents() {
-  elements.networkFilter.addEventListener("change", () => applyFilters({ network: elements.networkFilter.value }));
   elements.quotaFilter.addEventListener("change", () => applyFilters({ quota: elements.quotaFilter.value }));
   elements.sortFilter.addEventListener("change", () => applyFilters({ sort: elements.sortFilter.value }));
-
   elements.resetFilters.addEventListener("click", () => {
     resetFiltersAndViews();
     initializeFilters();
     render();
+  });
+
+  elements.fCountry.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-country]");
+    if (btn) selectCountry(btn.dataset.country);
+  });
+  elements.fSite.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-site]");
+    if (!btn) return;
+    const next = new Set(state.filters.sites);
+    if (next.has(btn.dataset.site)) next.delete(btn.dataset.site); else next.add(btn.dataset.site);
+    if (next.size) applyFilters({ sites: [...next] }); // 최소 1개는 유지
+  });
+  elements.fDays.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-days]");
+    if (btn) applyFilters({ days: btn.dataset.days });
+  });
+  elements.fNet.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-net]");
+    if (btn) applyFilters({ network: btn.dataset.net });
+  });
+  elements.ccards.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-country]");
+    if (btn) selectCountry(state.filters.country === btn.dataset.country ? "all" : btn.dataset.country);
+  });
+  elements.active.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-clear]");
+    if (!btn) return;
+    const clear = {
+      country: { country: "all" },
+      sites: { sites: state.payload.filters.sites.slice() },
+      days: { days: "all" },
+      quota: { quota: "all" },
+      network: { network: "all" },
+    }[btn.dataset.clear];
+    if (clear) { applyFilters(clear); setSelectValue(elements.quotaFilter, state.filters.quota); }
+  });
+
+  elements.tCountry.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-tc]");
+    if (btn) { state.trendCountry = btn.dataset.tc; renderTrend(); }
+  });
+  elements.legend.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-lg]");
+    if (!btn) return;
+    const site = btn.dataset.lg;
+    if (state.hiddenSites.has(site)) state.hiddenSites.delete(site); else state.hiddenSites.add(site);
+    renderTrend();
+  });
+  elements.heatmapBody.addEventListener("click", (e) => {
+    const cell = e.target.closest("[data-hc]");
+    if (!cell) return;
+    applyFilters({ country: cell.dataset.hc, days: cell.dataset.hd, sort: "price" });
+    setSelectValue(elements.sortFilter, "price");
+    state.trendCountry = cell.dataset.hc;
+    renderTrend();
+    elements.detailBody.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+
+  elements.mobileFilter.addEventListener("click", () => {
+    const open = elements.side.classList.toggle("open");
+    elements.mobileFilter.setAttribute("aria-expanded", String(open));
   });
 
   elements.snapshotDropdownButton.addEventListener("click", () => {
@@ -359,7 +439,8 @@ function bindEvents() {
   elements.detailToggle.addEventListener("click", () => {
     state.detailOpen = !state.detailOpen;
     elements.detailToggle.classList.toggle("open", state.detailOpen);
-    elements.detailBody.classList.toggle("open", state.detailOpen);
+    elements.detailToggle.setAttribute("aria-expanded", String(state.detailOpen));
+    elements.detailBody.hidden = !state.detailOpen;
   });
 
   elements.helpButton.addEventListener("click", () => { elements.helpModal.hidden = false; });
@@ -376,6 +457,17 @@ function bindEvents() {
     const rows = getFilteredRows();
     goToPage(Math.max(1, Math.ceil(rows.length / state.pagination.pageSize)));
   });
+
+  let resizeTimer;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(renderTrend, 120);
+  });
+}
+
+function selectCountry(code) {
+  if (code !== "all") state.trendCountry = code;
+  applyFilters({ country: code });
 }
 
 /* ═══ Rendering ════════════════════════════ */
@@ -383,12 +475,14 @@ function bindEvents() {
 function render() {
   const rows = getFilteredRows();
   renderHeader();
-  renderSummaryCards();
-  renderHeatmap();
-  renderVendorRanking();
-  renderPremiumAnalysis();
-  renderValueTable(rows);
+  renderSidebar();
+  renderActiveFilters(rows);
+  renderHero(rows);
+  renderTrend();
+  renderHeatmapAndVendors(rows);
+  renderPremium();
   renderSnapshotDiff(rows);
+  renderValueTable(rows);
   renderDetailTable(rows);
 }
 
@@ -398,263 +492,302 @@ function renderHeader() {
   elements.kpiTotal.textContent = fmt.format(summary.record_count);
   elements.kpiCountries.textContent = String(summary.country_count);
   elements.kpiSites.textContent = String(summary.site_count);
-  elements.snapshotMeta.textContent = buildSnapshotMeta();
 }
 
-function buildSnapshotMeta() {
-  const snapshot = state.currentSnapshot;
-  if (!snapshot) return "선택된 스냅샷 정보가 없습니다.";
-  const parts = [`${formatDate(snapshot.collected_at)} 기준`, buildSnapshotScope(snapshot)];
-  const comparisonSnapshots = getSelectedComparisonSnapshots();
-  if (comparisonSnapshots.length) {
-    parts.push(`비교 ${comparisonSnapshots.map((item) => formatDate(item.collected_at)).join(", ")}`);
+/* ── Sidebar ───────────────────────────── */
+function renderSidebar() {
+  const f = state.filters;
+  const { filters } = state.payload;
+  const rows = rowsOf();
+  const sum = (list) => list.reduce((n, r) => n + (r.option_count ?? 1), 0);
+
+  const byCountry = rows.filter((r) => matches(r, { country: false }));
+  elements.fCountry.innerHTML =
+    optButton({ attr: 'data-country="all"', pressed: f.country === "all", label: "전체 국가", count: sum(byCountry) }) +
+    countries().map(([code, name]) => optButton({
+      attr: `data-country="${escapeHtml(code)}"`, pressed: f.country === code,
+      label: `${ccBadge(code)} ${escapeHtml(name)}`, count: sum(byCountry.filter((r) => r.country_code === code)),
+    })).join("");
+
+  const bySite = rows.filter((r) => (f.country === "all" || r.country_code === f.country)
+    && (f.days === "all" || String(r.days) === f.days)
+    && (f.quota === "all" || r.data_quota_label === f.quota)
+    && (f.network === "all" || r.network_type === f.network));
+  const checkIcon = '<span class="check"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg></span>';
+  elements.fSite.innerHTML = filters.sites.map((site) => optButton({
+    attr: `data-site="${escapeHtml(site)}"`, pressed: f.sites.includes(site),
+    label: `${checkIcon}${siteDot(site)} ${escapeHtml(siteLabel(site))}`, count: sum(bySite.filter((r) => r.site === site)),
+  })).join("");
+
+  elements.fDays.innerHTML = ["all", ...QUICK_DAYS].map((d) =>
+    `<button class="chip" type="button" data-days="${d}" aria-pressed="${f.days === String(d)}">${d === "all" ? "전체" : `${d}일`}</button>`).join("");
+
+  elements.fNet.innerHTML = [["all", "전체"], ...filters.network_types.map((t) => [t, t.charAt(0).toUpperCase() + t.slice(1)])]
+    .map(([v, l]) => `<button type="button" data-net="${escapeHtml(v)}" aria-pressed="${f.network === v}">${escapeHtml(l)}</button>`).join("");
+}
+
+function optButton({ attr, pressed, label, count }) {
+  return `<button class="opt" type="button" ${attr} aria-pressed="${pressed}"><span class="opt-l">${label}</span><span class="cnt">${fmt.format(count)}</span></button>`;
+}
+
+/* ── Active filter chips ───────────────── */
+function renderActiveFilters(rows) {
+  const f = state.filters;
+  const allSites = state.payload.filters.sites;
+  const tags = [];
+  if (f.country !== "all") tags.push(["country", `국가 · ${countryName(f.country)}`]);
+  if (f.sites.length !== allSites.length) tags.push(["sites", `사이트 · ${f.sites.length}/${allSites.length}`]);
+  if (f.days !== "all") tags.push(["days", `일수 · ${f.days}일`]);
+  if (f.quota !== "all") tags.push(["quota", `용량 · ${f.quota}`]);
+  if (f.network !== "all") tags.push(["network", `네트워크 · ${f.network}`]);
+
+  const x = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  elements.active.innerHTML = (tags.length
+    ? '<span class="lbl">적용된 필터</span>' + tags.map(([key, text]) =>
+      `<span class="tag">${escapeHtml(text)}<button type="button" data-clear="${key}" aria-label="${escapeHtml(text)} 해제">${x}</button></span>`).join("")
+    : '<span class="lbl">필터 없음 · 전체 조건을 보고 있어요</span>')
+    + `<span class="result"><b>${fmt.format(rows.length)}</b>개 비교 행</span>`;
+  elements.mobileCount.textContent = tags.length ? `(${tags.length})` : "";
+}
+
+/* ── Hero ──────────────────────────────── */
+function renderHero(rows) {
+  const best = minRow(rows);
+  if (!best) {
+    elements.best.innerHTML = '<div class="eyebrow">조건에 맞는 옵션이 없어요</div>';
+  } else {
+    const options = rows.reduce((n, r) => n + (r.option_count ?? 1), 0);
+    const delta = priceDeltaPct(null);
+    elements.best.innerHTML = `
+      <div style="position:relative;z-index:1">
+        <div class="eyebrow">지금 가장 저렴한 옵션</div>
+        <div class="big num"><small>₩</small>${fmt.format(best.lowest_price_krw)}</div>
+        <div class="what">${escapeHtml(best.country_name_ko)} · ${escapeHtml(String(best.days))}일 · ${escapeHtml(best.data_quota_label || "용량 정보 없음")}</div>
+        <div class="meta">
+          <span>${escapeHtml(best.site_label)}</span>
+          <span>${escapeHtml(best.network_type || "-")}</span>
+          ${delta == null ? "" : `<span>직전 수집 대비 ${delta === 0 ? "변동 없음" : `${delta > 0 ? "+" : "−"}${Math.abs(delta)}%`}</span>`}
+        </div>
+      </div>
+      <div class="kpis">
+        <div><b>${fmt.format(options)}</b><span>옵션</span></div>
+        <div><b>${new Set(rows.map((r) => r.country_code)).size}</b><span>국가</span></div>
+        <div><b>${new Set(rows.map((r) => r.site)).size}</b><span>사이트</span></div>
+      </div>`;
   }
-  return parts.join(" \u00B7 ");
+
+  const base = rowsOf().filter((r) => matches(r, { country: false }));
+  elements.ccards.innerHTML = countries().map(([code, name]) => {
+    const m = minRow(base.filter((r) => r.country_code === code));
+    const dim = state.filters.country !== "all" && state.filters.country !== code;
+    return `<button class="ccard${dim ? " dim" : ""}" type="button" data-country="${escapeHtml(code)}" aria-pressed="${state.filters.country === code}">
+      <div class="row"><span class="nm">${ccBadge(code)} ${escapeHtml(name)}</span>${deltaChip(priceDeltaPct(code))}</div>
+      <div class="px">${m ? `<small>₩</small>${fmt.format(m.lowest_price_krw)}` : "—"}</div>
+      <div class="sub"><span>${m ? `${escapeHtml(String(m.days))}일 · ${escapeHtml(m.data_quota_label || "-")}` : "조건 없음"}</span><span>${m ? escapeHtml(m.site_label) : ""}</span></div>
+    </button>`;
+  }).join("");
 }
 
-/* ── Summary Cards ─────────────────────── */
-function renderSummaryCards() {
-  const countrySummary = state.payload.country_summary ?? [];
-  elements.summaryGrid.innerHTML = "";
+/* ── Trend chart ───────────────────────── */
+function trendSeries(countryCode) {
+  const sites = state.payload.filters.sites;
+  return sites.map((site) => ({
+    site,
+    pts: state.history
+      .map((h) => {
+        const m = minRow(rowsOf(h.payload).filter((r) => r.country_code === countryCode && r.site === site && r.days === TREND_DAYS));
+        return m ? { t: new Date(h.snap.collected_at).getTime(), v: m.lowest_price_krw } : null;
+      })
+      .filter(Boolean),
+  })).filter((s) => s.pts.length);
+}
 
-  for (const cs of countrySummary) {
-    const card = document.createElement("div");
-    card.className = "summary-card" + (state.filters.country === cs.country_code ? " selected" : "");
-    const flag = COUNTRY_FLAGS[cs.country_code] || "";
+function renderTrend() {
+  elements.tCountry.innerHTML = countries().map(([code, name]) =>
+    `<button type="button" data-tc="${escapeHtml(code)}" aria-pressed="${state.trendCountry === code}">${escapeHtml(name)}</button>`).join("");
 
-    // 필터링된 최저가 사이트 찾기
-    const filteredRows = (state.payload.comparison_rows ?? [])
-      .filter((r) => r.country_code === cs.country_code && matchesGlobalFilters(r));
-    const filteredLowest = filteredRows.length
-      ? filteredRows.reduce((min, r) => r.lowest_price_krw < min ? r.lowest_price_krw : min, Infinity)
-      : cs.lowest_price_krw;
-    const winnerRow = filteredRows.find((r) => r.lowest_price_krw === filteredLowest);
+  if (state.history.length < 2) {
+    elements.legend.innerHTML = "";
+    elements.trendInsight.textContent = "";
+    elements.trend.innerHTML = `<div class="empty-state">${state.history.length ? "비교할 수집 이력이 부족합니다." : "수집 이력을 불러오는 중입니다."}</div>`;
+    return;
+  }
 
-    card.innerHTML = `
-      <div class="card-country">
-        <span>${flag} ${escapeHtml(cs.country_name_ko)}</span>
-      </div>
-      <div class="card-price"><span class="won">\u20A9</span>${fmt.format(filteredLowest)}</div>
-      <div class="card-detail">
-        <span>${fmt.format(filteredRows.length || cs.option_count)}개 옵션</span>
-        ${winnerRow ? `<span class="card-badge">${escapeHtml(winnerRow.site_label)}</span>` : ""}
-      </div>
-    `;
-    card.addEventListener("click", () => {
-      const newCountry = state.filters.country === cs.country_code ? "all" : cs.country_code;
-      elements.countryTabs.querySelectorAll(".country-tab").forEach((t) => t.classList.remove("active"));
-      const targetTab = elements.countryTabs.querySelector(`.country-tab:nth-child(${newCountry === "all" ? 1 : countrySummary.findIndex((c) => c.country_code === cs.country_code) + 2})`);
-      if (targetTab) targetTab.classList.add("active");
-      applyFilters({ country: newCountry });
+  const series = trendSeries(state.trendCountry);
+  elements.legend.innerHTML = series.map(({ site }) => `<button class="lg" type="button" data-lg="${escapeHtml(site)}" aria-pressed="${!state.hiddenSites.has(site)}">
+    <svg width="28" height="8" aria-hidden="true"><line x1="0" y1="4" x2="28" y2="4" stroke="${siteStyle(site).c}" stroke-width="2.5" stroke-dasharray="${siteStyle(site).d}" stroke-linecap="round"/></svg>${escapeHtml(siteLabel(site))}</button>`).join("");
+
+  const vis = series.filter((s) => !state.hiddenSites.has(s.site));
+  const all = vis.flatMap((s) => s.pts);
+  if (!all.length) {
+    elements.trend.innerHTML = '<div class="empty-state">표시할 사이트를 선택하세요.</div>';
+    elements.trendInsight.textContent = "";
+    return;
+  }
+
+  const W = Math.max(320, Math.round(elements.trend.clientWidth));
+  const H = 300, L = 58, R = W > 560 ? 140 : 14, T = 14, B = 30;
+  const values = all.map((p) => p.v);
+  const step = Math.max(100, Math.pow(10, Math.floor(Math.log10(Math.max(...values) - Math.min(...values) || 1000))) / 2);
+  const lo = Math.max(0, Math.floor((Math.min(...values) * 0.92) / step) * step);
+  const hi = Math.ceil((Math.max(...values) * 1.05) / step) * step;
+  const times = state.history.map((h) => new Date(h.snap.collected_at).getTime());
+  const t0 = Math.min(...times), t1 = Math.max(...times);
+  const x = (t) => L + ((t - t0) / (t1 - t0 || 1)) * (W - L - R);
+  const y = (v) => T + ((hi - v) * (H - T - B)) / (hi - lo || 1);
+
+  let g = "";
+  for (let i = 0; i <= 4; i++) {
+    const v = lo + ((hi - lo) * i) / 4;
+    g += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="#E2E8F0"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${fmt.format(Math.round(v))}</text>`;
+  }
+  let lastLabelX = -Infinity;
+  for (const t of times) {
+    if (x(t) - lastLabelX < 38) continue;
+    lastLabelX = x(t);
+    const d = new Date(t);
+    g += `<text x="${x(t)}" y="${H - 8}" text-anchor="middle">${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}</text>`;
+  }
+
+  const ends = [];
+  for (const s of vis) {
+    const st = siteStyle(s.site);
+    g += `<polyline points="${s.pts.map((p) => `${x(p.t)},${y(p.v)}`).join(" ")}" fill="none" stroke="${st.c}" stroke-width="2.5" stroke-dasharray="${st.d}" stroke-linecap="round" stroke-linejoin="round"/>`;
+    s.pts.forEach((p, i) => {
+      g += `<circle cx="${x(p.t)}" cy="${y(p.v)}" r="${i === s.pts.length - 1 ? 4.5 : 3}" fill="#fff" stroke="${st.c}" stroke-width="2"><title>${escapeHtml(siteLabel(s.site))} ${escapeHtml(formatDate(new Date(p.t).toISOString()))} ${won(p.v)}</title></circle>`;
     });
-    elements.summaryGrid.appendChild(card);
+    const last = s.pts[s.pts.length - 1];
+    ends.push({ site: s.site, y: y(last.v), v: last.v });
   }
-}
-
-/* ── Heatmap ────────────────────────────── */
-function renderHeatmap() {
-  const matrix = state.payload.price_band_matrix ?? [];
-  const filteredMatrix = matrix
-    .filter((band) => state.filters.country === "all" || band.country_code === state.filters.country)
-    .filter((band) => state.filters.sites.length === 0 || true); // sites는 comparison 기반 필터
-
-  // 헤더
-  elements.heatmapHeadRow.innerHTML = "<th></th>" + HEATMAP_DAYS.map((d) => `<th>${d}일</th>`).join("");
-
-  // 전체 가격 범위 계산 (색상 스케일링용)
-  const allPrices = filteredMatrix.flatMap((band) =>
-    band.day_cells
-      .filter((c) => HEATMAP_DAYS.includes(c.days))
-      .map((c) => c.lowest_price_krw)
-      .filter((p) => p != null)
-  );
-  const maxPrice = Math.max(...allPrices, 1);
-
-  elements.heatmapBody.innerHTML = "";
-  for (const band of filteredMatrix) {
-    const tr = document.createElement("tr");
-    const flag = COUNTRY_FLAGS[band.country_code] || "";
-    tr.innerHTML = `<td class="row-label"><span class="flag">${flag}</span> ${escapeHtml(band.country_name_ko)}</td>`;
-
-    for (const d of HEATMAP_DAYS) {
-      const cell = band.day_cells.find((c) => c.days === d);
-      const td = document.createElement("td");
-      if (cell && cell.lowest_price_krw != null) {
-        const hmLevel = getHeatmapLevel(cell.lowest_price_krw, maxPrice);
-        td.className = `hm-${hmLevel}`;
-        td.innerHTML = `\u20A9${fmt.format(cell.lowest_price_krw)}`;
-        if (cell.site_winners?.length) {
-          td.innerHTML += `<span class="cell-winner">${escapeHtml(cell.site_winners.join(", "))}</span>`;
-        }
-        td.addEventListener("click", () => {
-          applyFilters({ country: band.country_code, days: String(d), sort: "price" });
-          syncCountryTab(band.country_code);
-          syncDaysButton(String(d));
-        });
-      } else {
-        td.textContent = "-";
-        td.style.color = "var(--muted)";
-      }
-      tr.appendChild(td);
+  ends.sort((a, b) => a.y - b.y);
+  for (let i = 1; i < ends.length; i++) if (ends[i].y < ends[i - 1].y + 15) ends[i].y = ends[i - 1].y + 15;
+  if (R > 20) {
+    for (const e of ends) {
+      g += `<text class="endlbl" x="${W - R + 10}" y="${e.y + 4}" style="fill:${siteStyle(e.site).c}">${escapeHtml(siteLabel(e.site))} ${won(e.v)}</text>`;
     }
-    elements.heatmapBody.appendChild(tr);
   }
+  elements.trend.innerHTML = `<svg class="chart" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${escapeHtml(countryName(state.trendCountry))} 사이트별 ${TREND_DAYS}일 최저가 추이">${g}</svg>`;
+
+  const cur = vis.map((s) => ({ s, v: s.pts[s.pts.length - 1].v })).sort((a, b) => a.v - b.v)[0];
+  const drops = vis.filter((s) => s.pts.length > 1)
+    .map((s) => ({ s, p: (s.pts[s.pts.length - 1].v - s.pts[0].v) / s.pts[0].v }))
+    .sort((a, b) => a.p - b.p);
+  const dropText = drops.length && drops[0].p < 0
+    ? ` 첫 수집 대비 가장 많이 내린 곳은 <b>${escapeHtml(siteLabel(drops[0].s.site))} (${Math.round(drops[0].p * 100)}%)</b>입니다.` : "";
+  elements.trendInsight.innerHTML = `${escapeHtml(countryName(state.trendCountry))} ${TREND_DAYS}일 기준 최근 수집 최저가는 <b>${escapeHtml(siteLabel(cur.s.site))} ${won(cur.v)}</b>.${dropText}`;
 }
 
-function getHeatmapLevel(price, maxPrice) {
-  const ratio = price / maxPrice;
-  if (ratio <= 0.1) return 1;
-  if (ratio <= 0.2) return 2;
-  if (ratio <= 0.35) return 3;
-  if (ratio <= 0.5) return 4;
-  if (ratio <= 0.65) return 5;
-  if (ratio <= 0.8) return 6;
-  if (ratio <= 0.9) return 7;
-  return 8;
+/* ── Heatmap + Vendor ranking ──────────── */
+function heatRamp(t) {
+  const a = [239, 246, 255], m = [147, 197, 253], z = [37, 99, 235], e = [30, 58, 138];
+  const [p, q, k] = t < 0.5 ? [a, m, t * 2] : t < 0.8 ? [m, z, (t - 0.5) / 0.3] : [z, e, (t - 0.8) / 0.2];
+  return p.map((v, i) => Math.round(v + (q[i] - v) * k));
 }
 
-function syncCountryTab(countryCode) {
-  elements.countryTabs.querySelectorAll(".country-tab").forEach((t) => t.classList.remove("active"));
-  const tabs = elements.countryTabs.querySelectorAll(".country-tab");
-  if (countryCode === "all" && tabs[0]) tabs[0].classList.add("active");
-  else {
-    const idx = (state.payload.filters?.countries ?? []).findIndex(([c]) => c === countryCode);
-    if (idx >= 0 && tabs[idx + 1]) tabs[idx + 1].classList.add("active");
+function renderHeatmapAndVendors(rows) {
+  const base = rowsOf().filter((r) => matches(r, { country: false, days: false }));
+  const cells = new Map();
+  const colMin = {}, colMax = {};
+  for (const d of HEATMAP_DAYS) {
+    const prices = [];
+    for (const [code] of countries()) {
+      const m = minRow(base.filter((r) => r.country_code === code && r.days === d));
+      cells.set(`${code}|${d}`, m);
+      if (m) prices.push(m.lowest_price_krw);
+    }
+    colMin[d] = prices.length ? Math.min(...prices) : null;
+    colMax[d] = prices.length ? Math.max(...prices) : null;
   }
+
+  elements.heatmapHeadRow.innerHTML = '<th class="rl"></th>' + HEATMAP_DAYS.map((d) => `<th>${d}일</th>`).join("");
+  elements.heatmapBody.innerHTML = countries().map(([code, name]) => {
+    const tds = HEATMAP_DAYS.map((d) => {
+      const r = cells.get(`${code}|${d}`);
+      if (!r) return '<td><div class="hm-cell empty"><b>—</b></div></td>';
+      const t = colMax[d] === colMin[d] ? 0 : (r.lowest_price_krw - colMin[d]) / (colMax[d] - colMin[d]);
+      const [rr, gg, bb] = heatRamp(t);
+      const sel = state.filters.country === code && state.filters.days === String(d);
+      const title = `${name} ${d}일 ${won(r.lowest_price_krw)} · ${r.site_label} · ${r.data_quota_label || "용량 정보 없음"} ${r.network_type || ""}`;
+      return `<td><button class="hm-cell${r.lowest_price_krw === colMin[d] ? " win" : ""}${sel ? " sel" : ""}" type="button" data-hc="${escapeHtml(code)}" data-hd="${d}"
+        style="--bg-c:rgb(${rr},${gg},${bb});--fg-c:${t < 0.55 ? "#0F172A" : "#fff"}" title="${escapeHtml(title)}">
+        <b>${won(r.lowest_price_krw)}</b><span><i></i>${escapeHtml(r.site_label)}</span></button></td>`;
+    }).join("");
+    return `<tr><td class="rl">${ccBadge(code)} ${escapeHtml(name)}</td>${tds}</tr>`;
+  }).join("");
+
+  // 벤더: 칸별 최저가 보유 수 + 현재 필터 기준 전체 최저가
+  const wins = {};
+  let totalCells = 0;
+  for (const r of cells.values()) if (r) { wins[r.site] = (wins[r.site] ?? 0) + 1; totalCells++; }
+  const list = state.filters.sites.map((site) => {
+    const own = rows.filter((r) => r.site === site);
+    return { site, min: minRow(own), options: own.reduce((n, r) => n + (r.option_count ?? 1), 0), wins: wins[site] ?? 0 };
+  }).sort((a, b) => (a.min?.lowest_price_krw ?? Infinity) - (b.min?.lowest_price_krw ?? Infinity));
+
+  elements.vend.innerHTML = list.map((v, i) => `<li>
+    <span class="rk">${i + 1}</span>
+    <div><div class="nm">${siteDot(v.site)}${escapeHtml(siteLabel(v.site))}</div>
+      <div class="bar" role="img" aria-label="최저가 보유 ${v.wins}칸"><i style="width:${totalCells ? (v.wins / totalCells) * 100 : 0}%;background:${siteStyle(v.site).c}"></i></div>
+      <div class="sub">최저가 보유 ${v.wins}/${totalCells}칸 · 옵션 ${fmt.format(v.options)}개</div></div>
+    <div class="px">${v.min ? won(v.min.lowest_price_krw) : "—"}<small>전체 최저가</small></div></li>`).join("")
+    || '<div class="empty-state">사이트를 선택하세요.</div>';
 }
 
-function syncDaysButton(daysValue) {
-  elements.daysGroup.querySelectorAll(".days-btn").forEach((b) => b.classList.remove("active"));
-  const btns = elements.daysGroup.querySelectorAll(".days-btn");
-  if (daysValue === "all" && btns[0]) btns[0].classList.add("active");
-  else {
-    const idx = QUICK_DAYS.indexOf(Number(daysValue));
-    if (idx >= 0 && btns[idx + 1]) btns[idx + 1].classList.add("active");
-  }
-}
+/* ── Local vs Roaming ──────────────────── */
+function renderPremium() {
+  const f = state.filters;
+  const premiumRows = (state.payload.network_premium_summary ?? []).filter((r) =>
+    (f.sites.length === 0 || f.sites.includes(r.site))
+    && (f.days === "all" || String(r.days) === f.days)
+    && (f.quota === "all" || r.data_quota_label === f.quota)
+    && r.local_price_krw > 0 && r.roaming_price_krw > 0);
 
-/* ── Vendor Ranking ─────────────────────── */
-function renderVendorRanking() {
-  const siteSummary = [...(state.payload.site_summary ?? [])].sort((a, b) => a.lowest_price_krw - b.lowest_price_krw);
-  elements.rankList.innerHTML = "";
-
-  const maxPrice = Math.max(...siteSummary.map((s) => s.lowest_price_krw), 1);
-
-  siteSummary.forEach((site, index) => {
-    const li = document.createElement("li");
-    li.className = "rank-item";
-    const medalClass = index < 4 ? `medal-${index + 1}` : "medal-4";
-    const barWidth = Math.max(10, Math.round((site.lowest_price_krw / maxPrice) * 100));
-    const barColor = index === 0 ? "var(--green)" : index === 1 ? "var(--amber)" : "var(--highlight)";
-
-    li.innerHTML = `
-      <div class="rank-medal ${medalClass}">${index + 1}</div>
-      <div class="rank-info">
-        <div class="rank-name">${escapeHtml(site.site_label)}</div>
-        <div class="rank-sub">${fmt.format(site.option_count)}개 옵션 \u00B7 ${fmt.format(site.country_count)}개국</div>
-        <div class="rank-bar-bg"><div class="rank-bar" style="width:${barWidth}%;background:${barColor}"></div></div>
-      </div>
-      <div class="rank-price">\u20A9${fmt.format(site.lowest_price_krw)}</div>
-    `;
-    elements.rankList.appendChild(li);
+  const stats = countries().map(([code, name]) => {
+    const rs = premiumRows.filter((r) => r.country_code === code);
+    if (!rs.length) return { code, name, pct: null };
+    const avg = (key) => rs.reduce((n, r) => n + r[key], 0) / rs.length;
+    return { code, name, pct: (avg("roaming_price_krw") / avg("local_price_krw") - 1) * 100 };
   });
-}
 
-/* ── Premium Analysis ───────────────────── */
-function renderPremiumAnalysis() {
-  const premiumRows = state.payload.network_premium_summary ?? [];
-  elements.premiumList.innerHTML = "";
+  elements.prem.innerHTML = stats.map(({ code, name, pct }) => {
+    if (pct == null) return `<div class="prem-row"><span class="nm">${ccBadge(code)} ${escapeHtml(name)}</span><div class="axis"></div><span class="v na">비교 데이터 없음</span></div>`;
+    const pos = pct >= 0;
+    const w = (Math.min(Math.abs(pct), 50) / 50) * 50;
+    return `<div class="prem-row"><span class="nm">${ccBadge(code)} ${escapeHtml(name)}</span>
+      <div class="axis" role="img" aria-label="${escapeHtml(name)} ${pct.toFixed(1)}%"><i style="${pos ? "left:50%;background:#EA580C" : "right:50%;background:#2563EB"};width:${w}%"></i></div>
+      <span class="v ${pos ? "pos" : "neg"}">${pos ? "+" : "−"}${Math.abs(pct).toFixed(1)}% <small>${pos ? "Local 유리" : "Roaming 유리"}</small></span></div>`;
+  }).join("") + '<div class="axis-l"><span></span><div><span>← Roaming 유리</span><span>Local 유리 →</span></div><span></span></div>';
 
-  // 국가별 평균 premium 계산
-  const countryPremiums = {};
-  for (const row of premiumRows) {
-    if (!countryPremiums[row.country_code]) {
-      countryPremiums[row.country_code] = { name: row.country_name_ko, localTotal: 0, roamingTotal: 0, count: 0 };
-    }
-    const cp = countryPremiums[row.country_code];
-    if (row.local_price_krw != null) cp.localTotal += row.local_price_krw;
-    if (row.roaming_price_krw != null) cp.roamingTotal += row.roaming_price_krw;
-    cp.count++;
-  }
-
-  const countrySummary = state.payload.country_summary ?? [];
-  for (const cs of countrySummary) {
-    const cp = countryPremiums[cs.country_code];
-    if (!cp) continue;
-
-    const avgLocal = cp.count > 0 ? cp.localTotal / cp.count : 0;
-    const avgRoaming = cp.count > 0 ? cp.roamingTotal / cp.count : 0;
-    const localIsCheaper = avgLocal < avgRoaming;
-    const diffPct = avgRoaming > 0 ? Math.abs(((avgLocal - avgRoaming) / avgRoaming) * 100) : 0;
-
-    const div = document.createElement("div");
-    div.className = "premium-row";
-    const flag = COUNTRY_FLAGS[cs.country_code] || "";
-    div.innerHTML = `
-      <div class="premium-country">${flag} ${escapeHtml(cp.name)}</div>
-      <span class="premium-badge ${localIsCheaper ? "badge-local" : "badge-roaming"}">${localIsCheaper ? "Local 유리" : "Roaming 유리"}</span>
-      <div class="premium-diff ${localIsCheaper ? "diff-negative" : "diff-positive"}">${localIsCheaper ? "-" : "+"}${Math.round(diffPct)}%</div>
-    `;
-    elements.premiumList.appendChild(div);
-  }
-
-  // 인사이트
-  const localWins = Object.values(countryPremiums).filter((cp) => {
-    const avgL = cp.count > 0 ? cp.localTotal / cp.count : 0;
-    const avgR = cp.count > 0 ? cp.roamingTotal / cp.count : 0;
-    return avgL < avgR;
-  }).length;
-  const totalCountries = Object.keys(countryPremiums).length;
-
-  elements.premiumInsight.innerHTML = totalCountries > 0
-    ? `<strong>인사이트:</strong> ${totalCountries}개국 중 ${localWins}개국에서 Local 네트워크가 더 저렴합니다. ${totalCountries - localWins > 0 ? `${totalCountries - localWins}개국은 Roaming이 더 유리할 수 있습니다.` : ""}`
-    : `<strong>인사이트:</strong> Local/Roaming 비교 데이터가 부족합니다.`;
+  const valid = stats.filter((s) => s.pct != null);
+  if (!valid.length) { elements.premInsight.textContent = "Local/Roaming 비교 데이터가 부족합니다."; return; }
+  const localWins = valid.filter((s) => s.pct > 0).length;
+  const big = [...valid].sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct))[0];
+  elements.premInsight.innerHTML = `${valid.length}개국 중 <b>${localWins}개국</b>에서 Local이 더 저렴합니다. 차이가 가장 큰 곳은 <b>${escapeHtml(big.name)} (${big.pct >= 0 ? "+" : "−"}${Math.abs(big.pct).toFixed(1)}%)</b>입니다.`;
 }
 
 /* ── Value Table (Top 10) ───────────────── */
 function renderValueTable(rows) {
-  elements.valueTableBody.innerHTML = "";
-
-  // ₩/GB/일 계산 가능한 행 필터링
-  const valuedRows = rows
-    .filter((r) => r.lowest_price_krw != null && r.days > 0)
-    .map((r) => {
-      const gb = parseDataQuotaGB(r.data_quota_label);
-      const unitPrice = gb > 0 ? r.lowest_price_krw / gb / r.days : null;
-      return { ...r, _gb: gb, _unitPrice: unitPrice };
-    })
-    .filter((r) => r._unitPrice != null)
-    .sort((a, b) => a._unitPrice - b._unitPrice)
+  const valued = rows
+    .map((r) => ({ ...r, _unit: calcUnitPrice(r) }))
+    .filter((r) => r._unit != null)
+    .sort((a, b) => a._unit - b._unit)
     .slice(0, 10);
 
-  if (!valuedRows.length) {
+  if (!valued.length) {
     elements.valueTableBody.innerHTML = '<tr><td colspan="8" class="empty-state">가성비 계산 가능한 데이터가 없습니다.</td></tr>';
     return;
   }
-
-  const bestUnitPrice = valuedRows[0]._unitPrice;
-
-  valuedRows.forEach((row, index) => {
-    const tr = document.createElement("tr");
-    if (index < 3) tr.className = "rank-top";
-    const flag = COUNTRY_FLAGS[row.country_code] || "";
-    const unitClass = row._unitPrice <= bestUnitPrice * 1.2 ? "unit-best"
-      : row._unitPrice <= bestUnitPrice * 2 ? "unit-good"
-      : row._unitPrice <= bestUnitPrice * 4 ? "unit-mid"
-      : "unit-exp";
-
-    tr.innerHTML = `
-      <td><span class="rank-num">${index + 1}</span></td>
-      <td>${flag} ${escapeHtml(row.country_name_ko)}</td>
-      <td>${escapeHtml(row.site_label)}</td>
-      <td class="mono">${row.days}</td>
-      <td>${escapeHtml(row.data_quota_label || "-")}</td>
-      <td><span class="premium-badge ${row.network_type === "local" ? "badge-local" : "badge-roaming"}">${escapeHtml(row.network_type || "-")}</span></td>
-      <td class="price-cell" style="text-align:right;">\u20A9${fmt.format(row.lowest_price_krw)}</td>
-      <td style="text-align:right;"><span class="unit-price ${unitClass}">\u20A9${row._unitPrice.toFixed(1)}</span></td>
-    `;
-    elements.valueTableBody.appendChild(tr);
-  });
+  const lo = valued[0]._unit, hi = valued[valued.length - 1]._unit;
+  elements.valueTableBody.innerHTML = valued.map((r, i) => `<tr>
+    <td><span class="rkn${i < 3 ? " hi" : ""}">${i + 1}</span></td>
+    <td class="nw">${ccBadge(r.country_code)} ${escapeHtml(r.country_name_ko)}</td>
+    <td class="nw">${siteDot(r.site)} ${escapeHtml(r.site_label)}</td>
+    <td class="num">${escapeHtml(String(r.days))}일</td>
+    <td class="num">${escapeHtml(r.data_quota_label || "-")}</td>
+    <td>${networkBadge(r.network_type)}</td>
+    <td class="r px">${won(r.lowest_price_krw)}</td>
+    <td class="r"><span class="ubar"><i style="--w:${Math.max(8, (r._unit / hi) * 100)}%;--c:${r._unit <= lo * 1.15 ? "#15803D" : "#2563EB"}"></i><b>${r._unit.toFixed(1)}</b></span></td>
+  </tr>`).join("");
 }
 
 function parseDataQuotaGB(label) {
@@ -671,48 +804,40 @@ function parseDataQuotaGB(label) {
 function renderSnapshotDiff(rows) {
   const comparisonSnapshots = getSelectedComparisonSnapshots();
   elements.snapshotDiffList.innerHTML = "";
+  elements.diffPill.hidden = true;
 
   if (!comparisonSnapshots.length) {
-    elements.snapshotDiffMeta.textContent = "시점 2개를 선택하면 가격 또는 노출 여부가 달라진 상품만 표시합니다.";
-    elements.snapshotDiffList.innerHTML = '<div class="empty-state" style="padding:14px;color:var(--muted);font-size:13px;">비교할 시점을 2개 선택해 주세요.</div>';
+    elements.snapshotDiffMeta.textContent = "우측 상단에서 시점 2개를 선택하면 가격 또는 노출 여부가 달라진 상품만 표시합니다.";
+    elements.snapshotDiffList.innerHTML = '<div class="empty-state">비교할 시점을 2개 선택해 주세요.</div>';
     return;
   }
 
-  const changedEntries = getChangedComparisonEntries(rows);
-  elements.snapshotDiffMeta.textContent = `${formatDate(state.currentSnapshot?.collected_at)} 기준 ${fmt.format(changedEntries.length)}개 상품이 달라졌습니다.`;
+  const changed = getChangedComparisonEntries(rows);
+  const compare = comparisonSnapshots[0];
+  elements.snapshotDiffMeta.textContent = `${formatDate(compare.collected_at)} → ${formatDate(state.currentSnapshot?.collected_at)}`;
+  elements.diffPill.textContent = `${fmt.format(changed.length)}건`;
+  elements.diffPill.hidden = false;
 
-  if (!changedEntries.length) {
-    elements.snapshotDiffList.innerHTML = '<div class="empty-state" style="padding:14px;color:var(--muted);font-size:13px;">현재 필터 조건에서 달라진 상품이 없습니다.</div>';
+  if (!changed.length) {
+    elements.snapshotDiffList.innerHTML = '<div class="empty-state">현재 필터 조건에서 달라진 상품이 없습니다.</div>';
     return;
   }
 
-  for (const entry of changedEntries.slice(0, 50)) {
-    const { row, items } = entry;
-    const item = items[0];
-    const card = document.createElement("article");
-    card.className = "snapshot-diff-card";
-    card.innerHTML = `
-      <div class="snapshot-diff-head">
-        <div>
-          <strong>${escapeHtml(row.country_name_ko)} \u00B7 ${escapeHtml(row.site_label)} \u00B7 ${escapeHtml(String(row.days))}일</strong>
-          <small>${escapeHtml(row.data_quota_label || "-")} \u00B7 ${escapeHtml(row.network_type || "-")}</small>
-        </div>
-        <span class="comparison-chip ${item.tone} snapshot-diff-badge">
-          <strong>${escapeHtml(item.value)}</strong>
-          <small>${escapeHtml(item.label)}</small>
-        </span>
-      </div>
-      <div class="snapshot-diff-values">
-        <span>기준가 ${row.lowest_price_krw != null ? `\u20A9${fmt.format(row.lowest_price_krw)}` : "-"}</span>
-        <span>${escapeHtml(item.detail)}</span>
-      </div>
-      <div class="snapshot-diff-foot">
-        <span>${fmt.format(row.option_count)}개 옵션</span>
-        <a class="source-link" href="${row.source_url}" target="_blank" rel="noopener noreferrer">Open</a>
-      </div>
-    `;
-    elements.snapshotDiffList.appendChild(card);
-  }
+  elements.snapshotDiffList.innerHTML = changed.slice(0, 50).map(({ row, primaryRow, compareRow }) => {
+    let chg;
+    if (!compareRow) chg = `<span class="badge-new">기준 시점에만 노출</span> ${won(primaryRow.lowest_price_krw ?? 0)}`;
+    else if (!primaryRow) chg = `<span class="badge-end">비교 시점에만 노출</span> <s>${won(compareRow.lowest_price_krw ?? 0)}</s>`;
+    else if (primaryRow.lowest_price_krw == null || compareRow.lowest_price_krw == null) chg = '<span class="badge-end">비교 불가</span>';
+    else {
+      const pct = Math.round(((primaryRow.lowest_price_krw - compareRow.lowest_price_krw) / compareRow.lowest_price_krw) * 100);
+      chg = `<s>${won(compareRow.lowest_price_krw)}</s>${won(primaryRow.lowest_price_krw)} ${deltaChip(pct)}`;
+    }
+    return `<div class="diff">
+      <div><div class="t1">${ccBadge(row.country_code)} ${siteDot(row.site)} ${escapeHtml(row.site_label)}</div>
+        <div class="t2">${escapeHtml(row.country_name_ko)} · ${escapeHtml(String(row.days))}일 · ${escapeHtml(row.data_quota_label || "-")} · ${escapeHtml(row.network_type || "-")}</div></div>
+      <div class="chg">${chg}</div>
+    </div>`;
+  }).join("");
 }
 
 /* ── Detail Table ───────────────────────── */
@@ -723,37 +848,28 @@ function renderDetailTable(rows) {
   const startIndex = (currentPage - 1) * state.pagination.pageSize;
   const pagedRows = rows.slice(startIndex, startIndex + state.pagination.pageSize);
 
-  elements.comparisonBody.innerHTML = "";
   elements.detailCount.textContent = fmt.format(rows.length);
-
   const sortLabels = { price: "최저가 낮은순", days: "사용일수 낮은순", unit_price: "가성비순", site: "사이트명 순" };
   elements.detailSortLabel.textContent = sortLabels[state.filters.sort] || state.filters.sort;
   elements.downloadCsv.disabled = rows.length === 0;
   renderPagination(pageCount, currentPage, rows.length === 0);
 
   if (!rows.length) {
-    const tr = document.createElement("tr");
-    tr.innerHTML = '<td class="empty-state" colspan="9">선택한 필터에 맞는 결과가 없습니다.</td>';
-    elements.comparisonBody.appendChild(tr);
+    elements.comparisonBody.innerHTML = '<tr><td class="empty-state" colspan="9">선택한 필터에 맞는 결과가 없습니다.</td></tr>';
     return;
   }
 
-  for (const row of pagedRows) {
-    const tr = document.createElement("tr");
-    const flag = COUNTRY_FLAGS[row.country_code] || "";
-    tr.innerHTML = `
-      <td><strong>${flag} ${escapeHtml(row.country_name_ko)}</strong><small>${escapeHtml(row.country_code)}</small></td>
-      <td><strong>${escapeHtml(row.site_label)}</strong></td>
-      <td>${escapeHtml(String(row.days))}일</td>
-      <td>${escapeHtml(row.data_quota_label || "-")}</td>
-      <td><span class="premium-badge ${row.network_type === "local" ? "badge-local" : "badge-roaming"}">${escapeHtml(row.network_type || "-")}</span></td>
-      <td><strong>\u20A9${row.lowest_price_krw != null ? fmt.format(row.lowest_price_krw) : "-"}</strong></td>
-      <td>${fmt.format(row.option_count)}</td>
-      <td style="font-size:12px;color:var(--muted);">${escapeHtml(row.sample_option_name || "-")}</td>
-      <td><a class="source-link" href="${row.source_url}" target="_blank" rel="noopener noreferrer">Open</a></td>
-    `;
-    elements.comparisonBody.appendChild(tr);
-  }
+  elements.comparisonBody.innerHTML = pagedRows.map((row) => `<tr>
+    <td class="nw">${ccBadge(row.country_code)} ${escapeHtml(row.country_name_ko)}</td>
+    <td class="nw">${siteDot(row.site)} ${escapeHtml(row.site_label)}</td>
+    <td class="num">${escapeHtml(String(row.days))}일</td>
+    <td class="num">${escapeHtml(row.data_quota_label || "-")}</td>
+    <td>${networkBadge(row.network_type)}</td>
+    <td class="r px">${row.lowest_price_krw != null ? won(row.lowest_price_krw) : "-"}</td>
+    <td class="r num">${fmt.format(row.option_count)}</td>
+    <td class="samp">${escapeHtml(row.sample_option_name || "-")}</td>
+    <td><a class="ext" href="${escapeHtml(row.source_url)}" target="_blank" rel="noopener noreferrer">열기 ↗</a></td>
+  </tr>`).join("");
 }
 
 function renderPagination(pageCount, currentPage, isEmpty) {
@@ -771,7 +887,7 @@ function renderPagination(pageCount, currentPage, isEmpty) {
   for (let page = windowStart; page <= windowEnd; page++) {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = `ghost-button page-button${page === currentPage ? " is-active" : ""}`;
+    button.className = `btn page-button${page === currentPage ? " is-active" : ""}`;
     button.textContent = String(page);
     button.disabled = page === currentPage;
     button.addEventListener("click", () => goToPage(page));
@@ -782,16 +898,7 @@ function renderPagination(pageCount, currentPage, isEmpty) {
 /* ═══ Data Filtering ═══════════════════════ */
 
 function getFilteredRows() {
-  return sortRows((state.payload?.comparison_rows ?? []).filter(matchesGlobalFilters));
-}
-
-function matchesGlobalFilters(row) {
-  if (state.filters.country !== "all" && row.country_code !== state.filters.country) return false;
-  if (state.filters.sites.length > 0 && !state.filters.sites.includes(row.site)) return false;
-  if (state.filters.days !== "all" && String(row.days) !== state.filters.days) return false;
-  if (state.filters.quota !== "all" && row.data_quota_label !== state.filters.quota) return false;
-  if (state.filters.network !== "all" && row.network_type !== state.filters.network) return false;
-  return true;
+  return sortRows(rowsOf().filter(matchesGlobalFilters));
 }
 
 function sortRows(rows) {
@@ -801,11 +908,7 @@ function sortRows(rows) {
   } else if (state.filters.sort === "site") {
     sorted.sort((a, b) => a.site.localeCompare(b.site) || (a.days ?? 0) - (b.days ?? 0));
   } else if (state.filters.sort === "unit_price") {
-    sorted.sort((a, b) => {
-      const ua = calcUnitPrice(a);
-      const ub = calcUnitPrice(b);
-      return (ua ?? Infinity) - (ub ?? Infinity);
-    });
+    sorted.sort((a, b) => (calcUnitPrice(a) ?? Infinity) - (calcUnitPrice(b) ?? Infinity));
   } else {
     sorted.sort((a, b) => (a.lowest_price_krw ?? Infinity) - (b.lowest_price_krw ?? Infinity) || (a.days ?? 0) - (b.days ?? 0));
   }
@@ -837,45 +940,27 @@ function buildComparisonLookup(rows) {
   return lookup;
 }
 
-function buildComparisonItem(primaryRow, compareRow, primarySnapshot, compareSnapshot) {
-  if (!primaryRow && compareRow) {
-    return { label: `${formatDate(compareSnapshot.collected_at)} 비교`, value: "신규 노출", detail: compareRow.lowest_price_krw != null ? `\u20A9${fmt.format(compareRow.lowest_price_krw)}` : "가격 정보 없음", tone: "is-up", changed: true };
-  }
-  if (primaryRow && !compareRow) {
-    return { label: `${formatDate(compareSnapshot.collected_at)} 비교`, value: "비교 시점 없음", detail: `${formatDate(primarySnapshot?.collected_at)} \u20A9${fmt.format(primaryRow.lowest_price_krw ?? 0)}`, tone: "is-missing", changed: true };
-  }
-  if (!primaryRow || !compareRow || compareRow.lowest_price_krw == null || primaryRow.lowest_price_krw == null) {
-    return { label: `${formatDate(compareSnapshot.collected_at)} 비교`, value: "비교 불가", detail: compareRow?.lowest_price_krw != null ? `\u20A9${fmt.format(compareRow.lowest_price_krw)}` : "동일 조건 없음", tone: "is-missing", changed: true };
-  }
-  const delta = compareRow.lowest_price_krw - primaryRow.lowest_price_krw;
-  const sign = delta > 0 ? "+" : "";
-  return { label: `${formatDate(compareSnapshot.collected_at)} 비교`, value: `${sign}${fmt.format(delta)}\uC6D0`, detail: `${formatDate(primarySnapshot?.collected_at)} \u20A9${fmt.format(primaryRow.lowest_price_krw)} \u2192 \u20A9${fmt.format(compareRow.lowest_price_krw)}`, tone: delta > 0 ? "is-up" : delta < 0 ? "is-down" : "", changed: delta !== 0 };
-}
-
+// 기준(primary)과 비교 스냅샷에서 가격이 다르거나 한쪽에만 있는 행을 반환한다.
 function getChangedComparisonEntries(rows) {
   const comparisonSnapshots = getSelectedComparisonSnapshots();
   if (!comparisonSnapshots.length) return [];
 
-  const primarySnapshot = state.currentSnapshot;
-  const compareSnapshot = comparisonSnapshots[0];
-  const comparePayload = state.snapshotPayloadCache.get(compareSnapshot.run_id);
+  const comparePayload = state.snapshotPayloadCache.get(comparisonSnapshots[0].run_id);
   if (!comparePayload || typeof comparePayload.then === "function") return [];
 
-  const primaryRows = sortRows(rows);
-  const compareRows = sortRows((comparePayload.comparison_rows ?? []).filter(matchesGlobalFilters));
-  const primaryLookup = buildComparisonLookup(primaryRows);
-  const compareLookup = buildComparisonLookup(compareRows);
-  const unionKeys = Array.from(new Set([...primaryLookup.keys(), ...compareLookup.keys()]));
+  const primaryLookup = buildComparisonLookup(rows);
+  const compareLookup = buildComparisonLookup(rowsOf(comparePayload).filter(matchesGlobalFilters));
 
-  return unionKeys
+  return Array.from(new Set([...primaryLookup.keys(), ...compareLookup.keys()]))
     .map((key) => {
       const primaryRow = primaryLookup.get(key) ?? null;
       const compareRow = compareLookup.get(key) ?? null;
-      const row = primaryRow ?? compareRow;
-      const item = buildComparisonItem(primaryRow, compareRow, primarySnapshot, compareSnapshot);
-      return row ? { row, items: [item] } : null;
+      const changed = !primaryRow || !compareRow
+        || primaryRow.lowest_price_krw == null || compareRow.lowest_price_krw == null
+        || primaryRow.lowest_price_krw !== compareRow.lowest_price_krw;
+      return changed ? { row: primaryRow ?? compareRow, primaryRow, compareRow } : null;
     })
-    .filter((entry) => entry && entry.items.some((item) => item.changed))
+    .filter(Boolean)
     .sort((a, b) => (a.row.lowest_price_krw ?? Infinity) - (b.row.lowest_price_krw ?? Infinity) || (a.row.days ?? 0) - (b.row.days ?? 0));
 }
 
@@ -911,15 +996,15 @@ function goToPage(page) {
 function downloadComparisonRows(rows) {
   if (!rows.length) return;
   const headers = [
-    ["country_name_ko", "\uAD6D\uAC00"], ["country_code", "\uAD6D\uAC00\uCF54\uB4DC"], ["site_label", "\uC0AC\uC774\uD2B8"], ["site", "\uC0AC\uC774\uD2B8ID"],
-    ["days", "\uC77C\uC218"], ["data_quota_label", "\uB370\uC774\uD130"], ["network_type", "\uB9DD\uC720\uD615"], ["lowest_price_krw", "\uCD5C\uC800\uAC00KRW"],
-    ["option_count", "\uC635\uC158\uC218"], ["sample_option_name", "\uB300\uD45C\uC635\uC158"], ["last_collected_at", "\uC218\uC9D1\uC2DC\uAC01"], ["source_url", "\uC6D0\uBCF8URL"],
+    ["country_name_ko", "국가"], ["country_code", "국가코드"], ["site_label", "사이트"], ["site", "사이트ID"],
+    ["days", "일수"], ["data_quota_label", "데이터"], ["network_type", "망유형"], ["lowest_price_krw", "최저가KRW"],
+    ["option_count", "옵션수"], ["sample_option_name", "대표옵션"], ["last_collected_at", "수집시각"], ["source_url", "원본URL"],
   ];
   const lines = [
     headers.map(([, label]) => toCsvCell(label)).join(","),
     ...rows.map((row) => headers.map(([key]) => toCsvCell(key === "last_collected_at" ? formatDate(row[key]) : row[key] ?? "")).join(",")),
   ];
-  const csv = `\uFEFF${lines.join("\r\n")}`;
+  const csv = `﻿${lines.join("\r\n")}`;
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -952,7 +1037,7 @@ function setSnapshotDropdownOpen(open) {
 /* ═══ Bootstrap ════════════════════════════ */
 
 loadDashboard().catch((error) => {
-  elements.snapshotMeta.textContent = error.message;
-  elements.snapshotDiffList.innerHTML = `<div class="empty-state" style="padding:14px;color:var(--muted);font-size:13px;">${escapeHtml(error.message)}</div>`;
+  elements.snapshotDiffMeta.textContent = error.message;
+  elements.snapshotDiffList.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
   elements.comparisonBody.innerHTML = `<tr><td class="empty-state" colspan="9">${escapeHtml(error.message)}</td></tr>`;
 });
