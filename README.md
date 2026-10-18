@@ -198,7 +198,7 @@ python -m pytest -q
 
 워크플로는 [.github/workflows/collect-and-deploy.yml](.github/workflows/collect-and-deploy.yml)에 있습니다.
 
-- `schedule`: 매주 월요일 00:17 UTC(한국 시간 09:17) 자동 실행 (`17 0 * * 1`)
+- `schedule`: 매주 일요일 19:17 UTC(한국 시간 월요일 04:17) 자동 실행 (`17 19 * * 0`)
 - `workflow_dispatch`: 수동 실행 (수집 포함)
 - `push` to `main`: 수집 없이 커밋된 데이터로 테스트 후 재배포
 

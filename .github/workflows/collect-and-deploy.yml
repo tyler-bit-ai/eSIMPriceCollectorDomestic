@@ -6,8 +6,8 @@ on:
       - main
   workflow_dispatch:
   schedule:
-    # 매주 월요일 00:17 UTC (한국 시간 월요일 09:17)
-    - cron: "17 0 * * 1"
+    # 매주 일요일 19:17 UTC (한국 시간 월요일 04:17)
+    - cron: "17 19 * * 0"
 
 permissions:
   contents: write
