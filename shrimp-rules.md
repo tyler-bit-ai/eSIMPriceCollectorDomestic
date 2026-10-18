@@ -19,6 +19,7 @@
 - `tests/` is reserved for fixtures and regression tests.
 - `data/` is the runtime output root and must not be hardcoded elsewhere with a different layout.
 - `.github/workflows/collect-and-deploy.yml` is the deployment workflow and depends on the crawl CLI, tests, and dashboard outputs.
+- The workflow crawls weekly (schedule) or on `workflow_dispatch`, then commits `data/` and `dashboard/data/` back to `main` so snapshot history accumulates; `push` runs only test and redeploy committed data.
 
 ### Required First Action For Any New Task
 

@@ -6,16 +6,17 @@ on:
       - main
   workflow_dispatch:
   schedule:
-    - cron: "17 */6 * * *"
+    # 매주 월요일 00:17 UTC (한국 시간 월요일 09:17)
+    - cron: "17 0 * * 1"
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   collect:
@@ -39,8 +40,10 @@ jobs:
       - name: Install Playwright Browser
         run: python -m playwright install chromium
 
+      # push 이벤트는 커밋된 데이터를 그대로 재배포하고, 수집은 schedule/workflow_dispatch에서만 수행한다.
       - name: Run Crawl
         id: crawl
+        if: ${{ github.event_name != 'push' }}
         shell: bash
         run: |
           set +e
@@ -69,8 +72,25 @@ jobs:
           test -f dashboard/app.js
           test -f dashboard/styles.css
 
+      # 수집 결과를 저장소에 커밋해 이력을 누적하고, 주기적인 커밋으로 schedule 60일 비활성화를 방지한다.
+      - name: Commit Collected Data
+        if: ${{ github.event_name != 'push' }}
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f data dashboard/data
+          if git diff --cached --quiet; then
+            echo "No data changes to commit."
+            exit 0
+          fi
+          run_id=$(python -c "import json; print(json.load(open('data/latest/run_metadata.json'))['run_id'])")
+          git commit -m "Refresh eSIM pricing data (${run_id})"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
       - name: Upload Crawl Logs
-        if: always()
+        if: ${{ always() && github.event_name != 'push' }}
         uses: actions/upload-artifact@v4
         with:
           name: crawl-logs

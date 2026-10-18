@@ -198,20 +198,23 @@ python -m pytest -q
 
 워크플로는 [.github/workflows/collect-and-deploy.yml](.github/workflows/collect-and-deploy.yml)에 있습니다.
 
-- `push` to `main`
-- `workflow_dispatch`
-- `schedule`: 6시간마다 자동 실행 (`17 */6 * * *`)
+- `schedule`: 매주 월요일 00:17 UTC(한국 시간 09:17) 자동 실행 (`17 0 * * 1`)
+- `workflow_dispatch`: 수동 실행 (수집 포함)
+- `push` to `main`: 수집 없이 커밋된 데이터로 테스트 후 재배포
 
 워크플로 순서:
 
 1. Python 3.13 환경 준비
 2. `pytest`, `PyYAML`, `playwright` 설치
 3. `python -m playwright install chromium`
-4. `python -m app crawl --registry config/source_registry.yml --out data --publish-dashboard`
+4. `python -m app crawl --registry config/source_registry.yml --out data --publish-dashboard` (`push`에서는 생략)
 5. `python -m pytest -q`
-6. `dashboard/`를 GitHub Pages artifact로 업로드
+6. `data/`, `dashboard/data/` 변경분을 `github-actions[bot]` 이름으로 `main`에 커밋·push (`push`에서는 생략)
 7. `data/failed.jsonl`, `data/runs/`, `data/latest/run_metadata.json`를 로그 artifact로 업로드
-8. GitHub Pages 배포
+8. `dashboard/`를 GitHub Pages artifact로 업로드하고 배포
+
+자동 수집 결과는 매번 저장소에 커밋되므로 `dashboard/data/snapshots/`와 `data/history/`에 이력이 계속 쌓입니다. 이 주간 커밋 덕분에 public 저장소의 "60일 무활동 시 schedule 비활성화"도 일어나지 않습니다.
+`data/`와 `dashboard/data/latest.json`은 `.gitignore` 대상이라 workflow에서 `git add -f`로 커밋합니다.
 
 GitHub 저장소 설정에서 Pages source는 반드시 `GitHub Actions`여야 합니다.
 
