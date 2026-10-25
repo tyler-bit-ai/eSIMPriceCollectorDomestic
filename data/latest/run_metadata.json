@@ -1,10 +1,10 @@
 {
-  "run_id": "run-20261018T212916Z-527fba87",
-  "collected_at": "2026-10-18T21:32:19.038474+00:00",
+  "run_id": "run-20261025T214407Z-0ab2c55e",
+  "collected_at": "2026-10-25T21:47:05.897648+00:00",
   "registry_path": "config/source_registry.yml",
   "output_root": "data",
   "selected_sites": [],
   "selected_countries": [],
-  "success_count": 3002,
+  "success_count": 3044,
   "failure_count": 1
 }
