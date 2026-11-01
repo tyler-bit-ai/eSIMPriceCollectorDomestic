@@ -1,7 +1,16 @@
 {
-  "latest_run_id": "run-20261025T214407Z-0ab2c55e",
-  "generated_at": "2026-10-25T21:47:05.897648+00:00",
+  "latest_run_id": "run-20261101T224628Z-c3d7dde2",
+  "generated_at": "2026-11-01T22:49:33.536131+00:00",
   "snapshots": [
+    {
+      "run_id": "run-20261101T224628Z-c3d7dde2",
+      "collected_at": "2026-11-01T22:49:33.536131+00:00",
+      "label": "2026-11-01 22:49 UTC · run-20261101T224628Z-c3d7dde2",
+      "history_date": "2026-11-01",
+      "relative_path": "snapshots/run-20261101T224628Z-c3d7dde2.json",
+      "selected_sites": [],
+      "selected_countries": []
+    },
     {
       "run_id": "run-20261025T214407Z-0ab2c55e",
       "collected_at": "2026-10-25T21:47:05.897648+00:00",
